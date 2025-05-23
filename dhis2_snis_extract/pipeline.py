@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import polars as pl
 from dateutil.relativedelta import relativedelta
-from openhexa.sdk import DHIS2Connection, current_run, parameter, pipeline, workspace
+from openhexa.sdk import current_run, parameter, pipeline, workspace
 from openhexa.toolbox.dhis2 import DHIS2
 from openhexa.toolbox.dhis2.dataframe import get_datasets
 from openhexa.toolbox.dhis2.periods import Month, Week
@@ -38,15 +38,6 @@ def dhis2_snis_extract(extract_orgunits: bool, extract_analytics: bool):
     """Simple pipeline to retrieve a monthly PNLP related data extract from DHIS2 SNIS instance."""
     # setup variables
     pipeline_path = Path(workspace.files_path) / "pipelines" / "dhis2_snis_extract"
-
-    # pipeline_path = (
-    #     Path(
-    #         "C:\\Users\\blues\\Desktop\\Bluesquare\\Repositories\\openhexa-pipelines-ner-nmdr\\dhis2_snis_extract\\workspace"
-    #     )
-    #     / "pipelines"
-    #     / "dhis2_snis_extract"
-    # )
-
     try:
         # load config
         config = load_configuration(pipeline_path=pipeline_path)
@@ -56,8 +47,6 @@ def dhis2_snis_extract(extract_orgunits: bool, extract_analytics: bool):
 
         # connect to DHIS2 SNIS
         dhis2_client = connect_to_dhis2(config=config, cache_dir=workspace.files_path)
-        # connection = DHIS2Connection(url="https://dhisniger.ne/", username="cartesanitaire", password="Carte@123")
-        # dhis2_client = DHIS2(connection=connection, cache_dir=None)
 
         # retrieve pyramid for alignment
         extract_snis_pyramid(
@@ -312,7 +301,8 @@ def handle_data_set_extracts(
         # set parameters
         ou_ids = ds_metadata.filter(pl.col("id") == dataset_id)["organisation_units"].to_list()[0]
         data_element_ids = dataset[1]["DATA_ELEMENTS"]
-        frequency = dataset[1]["FREQUENCY"][0].lower()
+        frequency = dataset[1].get("FREQUENCY", "Monthly").lower()
+        cat_opt_combos = dataset[1].get("CAT_OPTION_COMBOS", [])
         current_run.log_info(
             f"Extracting {len(data_element_ids)} data elements from dataset {dataset_id} with frequency {frequency}"
         )
@@ -323,7 +313,8 @@ def handle_data_set_extracts(
             data_elements=data_element_ids,
             org_units=ou_ids,
             month=month,
-            frequency=frequency.lower(),
+            frequency=frequency,
+            cat_opt_combos=cat_opt_combos,
             files_processed=ds_files_processed,
             output_path=pipeline_path / "data" / "data_sets",
             overwrite=overwrite,
@@ -422,7 +413,8 @@ def retrieve_dataset_extract_by_frequency(
     org_units: list[str],
     month: str,
     frequency: str,
-    files_processed: list,
+    cat_opt_combos: list[str],
+    files_processed: list[str],
     output_path: Path,
     overwrite: bool = False,
 ) -> Path:
@@ -445,7 +437,9 @@ def retrieve_dataset_extract_by_frequency(
         The month for which data should extract data.
     frequency : str
         Frequency of the periods (weekly, monthly, yearly)
-    files_processed : list
+    cat_opt_combos : list[str]
+        List of cat option combos to select (filter)
+    files_processed : list[str]
         List of already processed file paths to avoid duplicates.
     output_path : Path
         output path to save the file
@@ -486,6 +480,8 @@ def retrieve_dataset_extract_by_frequency(
         current_run.log_warning(f"No data found for period(s): {extract_periods}")
     else:
         current_run.log_info(f"{len(response)} Data points found in period(s): {extract_periods}")
+        df_formatted = pd.DataFrame(response)
+        df_formatted = df_formatted[df_formatted.categoryOptionCombo.isin(cat_opt_combos)]
         df_formatted = map_to_dhis2_format(pd.DataFrame(response), data_type="DATAELEMENT")
         save_to_parquet(data=df_formatted, filename=file_path)
 
