@@ -300,7 +300,10 @@ def handle_data_set_extracts(
 
         # set parameters
         ou_ids = ds_metadata.filter(pl.col("id") == dataset_id)["organisation_units"].to_list()[0]
-        data_element_ids = dataset[1]["DATA_ELEMENTS"]
+        # NOTE: if no dataelements, should select all
+        data_element_ids = dataset[1].get("DATA_ELEMENTS", [])
+        if len(data_element_ids) == 0:
+            data_element_ids = ds_metadata.filter(pl.col("id") == dataset_id)["data_elements"].to_list()[0]
         frequency = dataset[1].get("FREQUENCY", "Monthly").lower()
         cat_opt_combos = dataset[1].get("CAT_OPTION_COMBOS", [])
         current_run.log_info(
@@ -400,7 +403,7 @@ def retrieve_rate_extract_by_frequency(
     else:
         current_run.log_info(f"{len(response)} Data points found in period: {month}")
         df_formatted = pd.DataFrame(response).rename(columns={"pe": "period", "ou": "orgUnit"})
-        df_formatted = map_to_dhis2_format(df_formatted, data_type="DATASET")
+        df_formatted = map_to_dhis2_format(df_formatted, data_type="DATASET")  # NOTE: maybe this is not the right NAME?
         save_to_parquet(data=df_formatted, filename=file_path)
 
     return file_path
@@ -481,7 +484,8 @@ def retrieve_dataset_extract_by_frequency(
     else:
         current_run.log_info(f"{len(response)} Data points found in period(s): {extract_periods}")
         df_formatted = pd.DataFrame(response)
-        df_formatted = df_formatted[df_formatted.categoryOptionCombo.isin(cat_opt_combos)]
+        if len(cat_opt_combos) > 0:
+            df_formatted = df_formatted[df_formatted.categoryOptionCombo.isin(cat_opt_combos)]
         df_formatted = map_to_dhis2_format(pd.DataFrame(response), data_type="DATAELEMENT")
         save_to_parquet(data=df_formatted, filename=file_path)
 
@@ -507,6 +511,10 @@ def merge_files(prefix: str, period: str, input_path: Path, output_path: Path) -
     all_period_files = [f.resolve() for f in input_path.rglob(f"{prefix}_*_{period}.parquet") if f.is_file()]
     all_yearly_files = [f.resolve() for f in input_path.rglob(f"{prefix}_*_{period[:4]}.parquet") if f.is_file()]
     all_files = all_period_files + all_yearly_files
+
+    if len(all_files) == 0:
+        current_run.log_info(f"No files found for {prefix} in period {period}. Skipping merge.")
+        return
 
     current_run.log_info(f"Merging {len(all_files)} files")
     for f in all_files:
@@ -664,114 +672,6 @@ def handle_rate_extracts(
     return period_filenames
 
 
-# def retrieve_ou_list(dhis2_client: DHIS2, ou_level: int) -> list:
-#     """Retrieve a list of organisation unit IDs from DHIS2 at specific OU level.
-
-#     Args:
-#         dhis2_client (DHIS2): An instance of the DHIS2 client.
-#         ou_level (int): The organisational unit level to filter by.
-
-#     Returns:
-#         list: A list of organisation unit IDs at the specified level.
-
-#     Raises:
-#         Exception: If an error occurs while retrieving the organisation unit list.
-#     """
-#     try:
-#         # Retrieve organisational units and filter by ou_level
-#         ous = pd.DataFrame(dhis2_client.meta.organisation_units())
-#         ou_list = ous.loc[ous.level == ou_level].id.to_list()
-
-#         # Log the result based on the OU level
-#         if ou_level == 5:
-#             current_run.log_info(f"Retrieved SNIS DHIS2 FOSA id list {len(ou_list)}")
-#         elif ou_level == 4:
-#             current_run.log_info(f"Retrieved SNIS DHIS2 Aires de Sante id list {len(ou_list)}")
-#         else:
-#             current_run.log_info(f"Retrieved SNIS DHIS2 OU level {ou_level} id list {len(ou_list)}")
-#         return ou_list
-#     except Exception as e:
-#         raise Exception(f"Error while retrieving OU id list for level {ou_level}: {e}") from e
-
-
-# def handle_extract_for_period(dhis2_client: DHIS2, period: str, org_unit_list: list, config: dict, root_path: Path):
-#     """Function to retrieve and processes data from the DHIS2 system for a given period.
-
-#     Extracts are saved in a Parquet files.
-
-#     Parameters
-#     ----------
-#     dhis2_client : DHIS2
-#         An instance of the DHIS2 client used for API calls to retrieve data.
-#     period : str
-#         The period for data extraction in the "YYYYMM" format
-#         (e.g., "202409" for September 2024 -> MONTHLY)
-#     org_unit_list : list
-#         A list of organizational unit IDs for which data needs to be extracted.
-#     config : dict
-#         A dictionary containing the extraction configuration.
-#     root_path : str
-#         The root directory or the pipeline
-#     """
-#     # fname period extract (We can use the config["DHIS2_CONNECTION"] as reference in the file)
-#     extract_fname = root_path / "data" / "extracts" / f"snis_data_{period}.parquet"
-#     queue_db_path = root_path / "config" / ".queue.db"
-
-#     # initialize update queue
-#     push_queue = Queue(queue_db_path)
-
-#     # Download and replace the extract
-#     raw_routine_data = retrieve_snis_routine_extract(
-#         dhis2_snis_client=dhis2_client,
-#         period=period,
-#         org_unit_list=org_unit_list,
-#         routine_ids=config["ROUTINE_DATA_ELEMENT_UIDS"],
-#         last_updated=None,
-#     )
-#     raw_rates_data = retrieve_snis_rates_extract(dhis2_client, period, org_unit_list, config["RATE_UIDS"])
-#     raw_data = merge_dataframes([raw_routine_data, raw_rates_data])  # + raw_acm_data
-#     if raw_data is not None:
-#         if extract_fname.exists():
-#             current_run.log_info(f"Replacing extract for period {period}.")
-#         save_to_parquet(raw_data, extract_fname)
-#         push_queue.enqueue(period)
-#     else:
-#         current_run.log_info(f"Nothing to save for period {period}..")
-
-
-def handle_indicator_extracts(dhis2_client: DHIS2, period: str, config: dict) -> pd.DataFrame:
-    """Retrieves indicator data extracts from DHIS2 for a given period.
-
-    Parameters
-    ----------
-    dhis2_client : DHIS2
-        An instance of the DHIS2 client used for API calls to retrieve data.
-    period : str
-        The period for data extraction in the "YYYYMM" format.
-    config : dict
-        Configuration dictionary containing indicator extraction settings.
-
-    Returns
-    -------
-    pd.DataFrame
-        A DataFrame formatted to SNIS standards containing the extracted ACM indicator data.
-    """
-    for ind in config["INDICATORS"].items():
-        indicator_ids = ind[0]  # NOTE: Define configuration for indicators!
-        try:
-            response = dhis2_client.analytics.get(
-                indicators=indicator_ids,
-                periods=[period],
-                org_units=[],
-                include_cocs=False,
-            )
-        except Exception as e:
-            raise Exception(f"Error while retrieving ACM data: {e}") from e
-
-    raw_data_formatted = pd.DataFrame(response).rename(columns={"pe": "period", "ou": "orgUnit"})
-    return map_to_dhis2_format(raw_data_formatted, data_type="INDICATOR")
-
-
 def map_to_dhis2_format(
     dhis_data: pd.DataFrame,
     data_type: str = "DATAELEMENT",
@@ -790,7 +690,6 @@ def map_to_dhis2_format(
         - "DATAELEMENT": Includes `categoryOptionCombo` and maps `dataElement` to `dx_uid`.
         - "DATASET": Maps `dx` to `dx_uid` and `rate_type` by split the string by `.`.
         - "INDICATOR": Maps `dx` to `dx_uid`.
-        - "POPULATION": Maps `dx` to `dx_uid` and the rest of DHIS2 raw columns
         Default is "DATAELEMENT".
     domain_type : str, optional
         The domain of the data if its per period (Agg ex: monthly) or datapoint (Tracker ex: per day):
@@ -813,8 +712,10 @@ def map_to_dhis2_format(
     if dhis_data.empty:
         return None
 
-    if data_type not in ["DATAELEMENT", "DATASET", "INDICATOR", "POPULATION"]:
-        raise ValueError("Incorrect 'data_type' configuration ('DATAELEMENT', 'DATASET', 'INDICATOR', 'POPULATION')")
+    # NOTE: Think about renaming this things , perhaps DATASET should be replaced by:
+    # DATASET_RATE (data elements retrieved from a DATASET can just be DATAELEMENTS)
+    if data_type not in ["DATAELEMENT", "DATASET", "INDICATOR"]:
+        raise ValueError("Incorrect 'data_type' configuration ('DATAELEMENT', 'DATASET', 'INDICATOR')")
 
     try:
         dhis2_format = pd.DataFrame(
@@ -835,7 +736,7 @@ def map_to_dhis2_format(
         dhis2_format["domain_type"] = domain_type
         dhis2_format["value"] = dhis_data.value
         dhis2_format["data_type"] = data_type
-        if data_type in ["DATAELEMENT", "POPULATION"]:
+        if data_type in ["DATAELEMENT"]:
             dhis2_format["dx_uid"] = dhis_data.dataElement
             dhis2_format["category_option_combo"] = dhis_data.categoryOptionCombo
             dhis2_format["attribute_option_combo"] = dhis_data.attributeOptionCombo
@@ -912,18 +813,117 @@ def get_monthly_periods(config: dict) -> list[str]:
     return monthly_periods
 
 
+# NOTE: The folowing functions could be eventually used (no needed for Niger)
+# I keep them here for reference and for useful snippets in the code.
+# they can be removed after Niger testing.
+
+# def retrieve_ou_list(dhis2_client: DHIS2, ou_level: int) -> list:
+#     """Retrieve a list of organisation unit IDs from DHIS2 at specific OU level.
+
+#     Args:
+#         dhis2_client (DHIS2): An instance of the DHIS2 client.
+#         ou_level (int): The organisational unit level to filter by.
+
+#     Returns:
+#         list: A list of organisation unit IDs at the specified level.
+
+#     Raises:
+#         Exception: If an error occurs while retrieving the organisation unit list.
+#     """
+#     try:
+#         # Retrieve organisational units and filter by ou_level
+#         ous = pd.DataFrame(dhis2_client.meta.organisation_units())
+#         ou_list = ous.loc[ous.level == ou_level].id.to_list()
+
+#         # Log the result based on the OU level
+#         if ou_level == 5:
+#             current_run.log_info(f"Retrieved SNIS DHIS2 FOSA id list {len(ou_list)}")
+#         elif ou_level == 4:
+#             current_run.log_info(f"Retrieved SNIS DHIS2 Aires de Sante id list {len(ou_list)}")
+#         else:
+#             current_run.log_info(f"Retrieved SNIS DHIS2 OU level {ou_level} id list {len(ou_list)}")
+#         return ou_list
+#     except Exception as e:
+#         raise Exception(f"Error while retrieving OU id list for level {ou_level}: {e}") from e
+
+
+# def handle_extract_for_period(dhis2_client: DHIS2, period: str, org_unit_list: list, config: dict, root_path: Path):
+#     """Function to retrieve and processes data from the DHIS2 system for a given period.
+
+#     Extracts are saved in a Parquet files.
+
+#     Parameters
+#     ----------
+#     dhis2_client : DHIS2
+#         An instance of the DHIS2 client used for API calls to retrieve data.
+#     period : str
+#         The period for data extraction in the "YYYYMM" format
+#         (e.g., "202409" for September 2024 -> MONTHLY)
+#     org_unit_list : list
+#         A list of organizational unit IDs for which data needs to be extracted.
+#     config : dict
+#         A dictionary containing the extraction configuration.
+#     root_path : str
+#         The root directory or the pipeline
+#     """
+#     # fname period extract (We can use the config["DHIS2_CONNECTION"] as reference in the file)
+#     extract_fname = root_path / "data" / "extracts" / f"snis_data_{period}.parquet"
+#     queue_db_path = root_path / "config" / ".queue.db"
+
+#     # initialize update queue
+#     push_queue = Queue(queue_db_path)
+
+#     # Download and replace the extract
+#     raw_routine_data = retrieve_snis_routine_extract(
+#         dhis2_snis_client=dhis2_client,
+#         period=period,
+#         org_unit_list=org_unit_list,
+#         routine_ids=config["ROUTINE_DATA_ELEMENT_UIDS"],
+#         last_updated=None,
+#     )
+#     raw_rates_data = retrieve_snis_rates_extract(dhis2_client, period, org_unit_list, config["RATE_UIDS"])
+#     raw_data = merge_dataframes([raw_routine_data, raw_rates_data])  # + raw_acm_data
+#     if raw_data is not None:
+#         if extract_fname.exists():
+#             current_run.log_info(f"Replacing extract for period {period}.")
+#         save_to_parquet(raw_data, extract_fname)
+#         push_queue.enqueue(period)
+#     else:
+#         current_run.log_info(f"Nothing to save for period {period}..")
+
+
+# def handle_indicator_extracts(dhis2_client: DHIS2, period: str, config: dict) -> pd.DataFrame:
+#     """Retrieves indicator data extracts from DHIS2 for a given period.
+
+#     Parameters
+#     ----------
+#     dhis2_client : DHIS2
+#         An instance of the DHIS2 client used for API calls to retrieve data.
+#     period : str
+#         The period for data extraction in the "YYYYMM" format.
+#     config : dict
+#         Configuration dictionary containing indicator extraction settings.
+
+#     Returns
+#     -------
+#     pd.DataFrame
+#         A DataFrame formatted to SNIS standards containing the extracted ACM indicator data.
+#     """
+#     for ind in config["INDICATORS"].items():
+#         indicator_ids = ind[0]  # NOTE: Define configuration for indicators!
+#         try:
+#             response = dhis2_client.analytics.get(
+#                 indicators=indicator_ids,
+#                 periods=[period],
+#                 org_units=[],
+#                 include_cocs=False,
+#             )
+#         except Exception as e:
+#             raise Exception(f"Error while retrieving ACM data: {e}") from e
+
+#     raw_data_formatted = pd.DataFrame(response).rename(columns={"pe": "period", "ou": "orgUnit"})
+#     return map_to_dhis2_format(raw_data_formatted, data_type="INDICATOR")
+
+
 if __name__ == "__main__":
     dhis2_snis_extract()
-
-
-##
-# Test
-# yr = pd.read_parquet(pipeline_path / "data\\raw\\data_sets\\yearly\\ds_ibafcZot7pS_2024.parquet")
-# yr[yr.dx_uid == "oQDuu133T20"].shape
-
-# m = pd.read_parquet(pipeline_path / "data\\raw\\extracts\\ds_extract_202412.parquet")
-# m[m.dx_uid == "oQDuu133T20"].shape
-
-# rat = pd.read_parquet(pipeline_path / "data\\extracts\\rate_extract_202412.parquet")
-# rat.head()
-# rat[m.dx_uid == "oQDuu133T20"].shape

@@ -1,0 +1,34 @@
+{
+	"PUSH_SETTINGS": {
+		"DHIS2_CONNECTION": "dhis2-nmdr-niger",
+		"IMPORT_STRATEGY": "CREATE_AND_UPDATE",
+		"DRY_RUN": true,
+		"MAX_POST": 5000
+	}, 
+	"DATA_ELEMENT_MAPPINGS": {
+		"UIDS": {},
+		"ORG_UNITS" : {},
+		"CAT_OPTION_COMBOS": {
+			"DEFAULT" : "HllvX50cXC0",
+			"UIDS" : {}
+		},
+		"ATTR_OPTION_COMBOS": {
+			"DEFAULT" : "HllvX50cXC0",
+			"UIDS" : {}
+		}
+	},
+	"DATA_SET_MAPPINGS":{
+	},
+	"RATE_MAPPINGS":{
+		"kl1MGZq8a3V" : {
+			"REPORTING_RATE_ON_TIME": {
+				"UID" : "gjxnrU1u4Ro",
+				"CAT_OPTION_COMBO": "HllvX50cXC0",
+				"CAT_COMBO" : "bjDvmb4bfuf",
+				"ATTR_OPTION_COMBO": "HllvX50cXC0"
+			}
+		}	
+	},
+	"INDICATOR_MAPPINGS": {
+	}
+}

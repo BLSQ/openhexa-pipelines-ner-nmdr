@@ -1,0 +1,54 @@
+{
+	"EXTRACT_SETTINGS": {
+		"NUMBER_MONTHS_WINDOW": 5,
+		"STARTDATE": "202411",
+		"ENDDATE": "202412",		
+		"DHIS2_CONNECTION": "dhis2-snis-niger"
+	},
+	"DATA_ELEMENTS" : {
+		"ORG_UNIT_LEVEL" : 5,
+		"IDS": [],
+        "FREQUENCY" : "Monthly"
+	},
+	"DATA_SETS": {
+        "BsMf0wqUZOX": {
+            "DATA_ELEMENTS": [
+                "j5m1I1GaJXW"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_OPTION_COMBOS" : [
+                "HllvX50cXC0"
+            ]
+        },
+        "TIsYA3E2SAS": {
+            "DATA_ELEMENTS": [
+                "Qdir1G9j4mr",
+                "O3eBxEPCtB9"
+            ],
+            "FREQUENCY": "Yearly",
+            "CAT_OPTION_COMBOS" : [
+                "HllvX50cXC0"
+            ]
+        },
+        "tRHCgvQfhdn": {
+            "DATA_ELEMENTS": [
+                "TgrtU8TMzug"                
+            ],
+            "FREQUENCY": "Weekly",
+            "CAT_OPTION_COMBOS" : [
+                "Xj9ayPI0QYh"
+            ]
+        }
+	},
+	"RATE_UIDS": {
+        "kl1MGZq8a3V" : {
+            "METRICS": {
+                "REPORTING_RATE_ON_TIME": "float"
+            },
+            "FREQUENCY" : "Monthly"
+		}		
+	},
+    "INDICATORS" : {
+        
+    }
+}
