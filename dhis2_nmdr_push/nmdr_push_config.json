@@ -6,28 +6,32 @@
 		"MAX_POST": 5000
 	}, 
 	"DATA_ELEMENT_MAPPINGS": {
-		"UIDS": {},
-		"ORG_UNITS" : {},
+		"UIDS": {
+            	"example_in" : "example_out"
+         },
+		"ORG_UNITS" : [],
 		"CAT_OPTION_COMBOS": {
 			"DEFAULT" : "HllvX50cXC0",
-			"UIDS" : {}
+			"UIDS" : {
+            	"example_in" : "example_out"
+         }
 		},
 		"ATTR_OPTION_COMBOS": {
 			"DEFAULT" : "HllvX50cXC0",
-			"UIDS" : {}
+			"UIDS" : {
+            	"example_in" : "example_out"
+         }
 		}
 	},
 	"DATA_SET_MAPPINGS":{
 	},
 	"RATE_MAPPINGS":{
 		"kl1MGZq8a3V" : {
-			"REPORTING_RATE_ON_TIME": {
-				"UID" : "gjxnrU1u4Ro",
-				"CAT_OPTION_COMBO": "HllvX50cXC0",
-				"CAT_COMBO" : "bjDvmb4bfuf",
-				"ATTR_OPTION_COMBO": "HllvX50cXC0"
-			}
-		}	
+			"RATE_TYPE": "REPORTING_RATE_ON_TIME",
+			"UID" : "gjxnrU1u4Ro",
+			"CAT_OPTION_COMBO": "HllvX50cXC0",
+			"ATTR_OPTION_COMBO": "HllvX50cXC0"
+		}			
 	},
 	"INDICATOR_MAPPINGS": {
 	}

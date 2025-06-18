@@ -43,13 +43,13 @@ def dhis2_snis_extract(extract_orgunits: bool, extract_analytics: bool):
         config = load_configuration(pipeline_path=pipeline_path)
 
         # Validate dates
-        validate_period_range(config)
+        done_validate_period = validate_period_range(config)
 
         # connect to DHIS2 SNIS
-        dhis2_client = connect_to_dhis2(config=config, cache_dir=workspace.files_path)
+        dhis2_client = connect_to_dhis2(config=config, cache_dir=workspace.files_path, done=done_validate_period)
 
         # retrieve pyramid for alignment
-        extract_snis_pyramid(
+        done_pyramid = extract_snis_pyramid(
             pipeline_path=pipeline_path,
             dhis2_snis_client=dhis2_client,
             run_pipeline=extract_orgunits,
@@ -61,6 +61,7 @@ def dhis2_snis_extract(extract_orgunits: bool, extract_analytics: bool):
             config=config,
             dhis2_client=dhis2_client,
             run_pipeline=extract_analytics,
+            done=done_pyramid,
         )
 
     except Exception as e:
@@ -89,10 +90,10 @@ def load_configuration(pipeline_path: Path) -> dict:
         raise json.JSONDecodeError(f"Error decoding JSON: {e}") from e
     except Exception as e:
         raise Exception(f"An error occurred while loading the configuration: {e}") from e
-        raise
 
 
-def connect_to_dhis2(config: dict, cache_dir: str) -> DHIS2:
+@dhis2_snis_extract.task
+def connect_to_dhis2(config: dict, cache_dir: str, done) -> DHIS2:
     """Establishes a connection to the DHIS2 and set a cache directory.
 
     Args:
@@ -152,7 +153,7 @@ def extract_snis_pyramid(pipeline_path: Path, dhis2_snis_client: DHIS2, run_pipe
 
 
 @dhis2_snis_extract.task
-def extract_snis_data(pipeline_path: Path, config: dict, dhis2_client: DHIS2, run_pipeline: bool) -> bool:
+def extract_snis_data(pipeline_path: Path, config: dict, dhis2_client: DHIS2, run_pipeline: bool, done) -> bool:
     """Data extraction task.
 
     Returns:
@@ -173,6 +174,8 @@ def extract_snis_data(pipeline_path: Path, config: dict, dhis2_client: DHIS2, ru
     try:
         # Load dataset metadata
         ds_metadata = get_datasets(dhis2=dhis2_client)
+        dict_coc_cc = get_coc_from_cc(config=config, dhis2=dhis2_client)
+        config = add_coc_to_config(config, dict_coc_cc)
 
         # NOTE: now we can potentially create separated tasks for each handler
         for period in monthly_periods:
@@ -231,6 +234,66 @@ def extract_snis_data(pipeline_path: Path, config: dict, dhis2_client: DHIS2, ru
 
     except Exception as e:
         raise Exception(f"Extract task error : {e}") from e
+
+
+def get_coc_from_cc(config: dict, dhis2: DHIS2) -> dict:
+    """
+    From the config, construct a list that maps the Category Combos to their Category Option Combos.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary containing the Category Combos that we want to extract.
+
+    Returns
+    -------
+    dict
+        A dictionary mapping Category Combos to their Category Option Combos.
+    """
+    current_run.log_info("Retrieving Category Option Combos from Category Combos")
+
+    unique_cat_combos = set()
+    dict_coc_cc = {}
+    params = {"fields": "id,displayName,categoryOptionCombos[id,displayName]"}
+
+    for _, value in config.get("DATA_SETS").items():
+        cat_combos = value.get("CAT_COMBOS", [])
+        for combo in cat_combos:
+            unique_cat_combos.add(combo)
+
+    unique_cat_combos = list(unique_cat_combos)
+
+    for cat_combo in unique_cat_combos:
+        response = dhis2.api.get(
+            endpoint=f"categoryCombos/{cat_combo}",
+            params=params,
+        )
+        if response:
+            category_option_combos = response.get("categoryOptionCombos", [])
+            dict_coc_cc[cat_combo] = [coc["id"] for coc in category_option_combos]
+        else:
+            current_run.log_warning(f"Category Combo {cat_combo} not found in DHIS2.")
+
+    return dict_coc_cc
+
+
+def add_coc_to_config(config: dict, dict_coc_cc: dict) -> dict:
+    """
+    Add the categoryOptionCombo to the input config file
+
+    Returns
+    -------
+    The config file with the CoC added to it.
+    """
+    current_run.log_info("Adding Category Option Combos to config")
+
+    for _, value in config.get("DATA_SETS").items():
+        cat_combos = value.get("CAT_COMBOS", [])
+        for cat_combo in cat_combos:
+            if cat_combo in dict_coc_cc.keys():
+                value["CAT_OPTION_COMBOS"].extend(dict_coc_cc[cat_combo])
+
+    return config
 
 
 def handle_data_element_extracts(
@@ -296,12 +359,13 @@ def handle_data_set_extracts(
     overwrite = config["EXTRACT_SETTINGS"].get("OVERWRITE", False)
 
     for dataset in config["DATA_SETS"].items():
-        dataset_id = dataset[0]
+        # I have introduced the __ so that I have the same dataset id twice in the dictionary.
+        dataset_id = dataset[0].split("__")[0]
 
         # set parameters
         ou_ids = ds_metadata.filter(pl.col("id") == dataset_id)["organisation_units"].to_list()[0]
-        # NOTE: if no dataelements, should select all
         data_element_ids = dataset[1].get("DATA_ELEMENTS", [])
+        # NOTE: if no dataelements, should select all
         if len(data_element_ids) == 0:
             data_element_ids = ds_metadata.filter(pl.col("id") == dataset_id)["data_elements"].to_list()[0]
         frequency = dataset[1].get("FREQUENCY", "Monthly").lower()
@@ -481,13 +545,22 @@ def retrieve_dataset_extract_by_frequency(
 
     if len(response) == 0:
         current_run.log_warning(f"No data found for period(s): {extract_periods}")
+        return None
     else:
         current_run.log_info(f"{len(response)} Data points found in period(s): {extract_periods}")
         df_formatted = pd.DataFrame(response)
         if len(cat_opt_combos) > 0:
-            df_formatted = df_formatted[df_formatted.categoryOptionCombo.isin(cat_opt_combos)]
-        df_formatted = map_to_dhis2_format(pd.DataFrame(response), data_type="DATAELEMENT")
-        save_to_parquet(data=df_formatted, filename=file_path)
+            df_formatted = df_formatted[(df_formatted.categoryOptionCombo.isin(cat_opt_combos))]
+
+        if not df_formatted.empty:
+            df_formatted = map_to_dhis2_format(df_formatted, data_type="DATAELEMENT")
+            save_to_parquet(data=df_formatted, filename=file_path)
+            current_run.log_info(f"Dataset extract saved: {file_path} with {len(df_formatted)} records")
+        else:
+            current_run.log_warning(
+                f"No valid data found for period(s): {extract_periods} with cat option combos {cat_opt_combos}"
+            )
+            return None
 
     return file_path
 
@@ -752,6 +825,7 @@ def map_to_dhis2_format(
         raise Exception(f"Unexpected Error while creating routine format table: {e}") from e
 
 
+@dhis2_snis_extract.task
 def validate_period_range(config: dict) -> None:
     """Validate that start and end are valid yyyymm values and ordered correctly."""
     start = config["EXTRACT_SETTINGS"].get("STARTDATE", None)
@@ -764,6 +838,8 @@ def validate_period_range(config: dict) -> None:
 
     if start > end:
         raise ValueError("Start period must not be after end period.")
+
+    return True
 
 
 def validate_yyyymm(yyyymm_str: str) -> None:

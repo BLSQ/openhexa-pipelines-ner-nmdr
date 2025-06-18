@@ -303,3 +303,143 @@ class Queue:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM queue")
         return cursor.fetchone()[0]
+
+
+# Helper class definition to store/create the correct DataElement JSON format
+class DataPoint:
+    def __init__(self, series_row: pd.Series):
+        """Create a new org unit instance.
+
+        Parameters
+        ----------
+        series_row : pandas series
+            Expects columns with names :
+                ['data_type',
+                'dx_uid',
+                'period',
+                'org_unit',
+                'category_option_combo',
+                'attribute_option_combo',
+                'rate_type',
+                'domain_type',
+                'value']
+        """
+        row = series_row.squeeze(axis=0)
+        self.dataType = row.get("data_type")
+        self.dataElement = row.get("dx_uid")
+        self.period = row.get("period")
+        self.orgUnit = row.get("org_unit")
+        self.categoryOptionCombo = row.get("category_option_combo")
+        self.attributeOptionCombo = row.get("attribute_option_combo")
+        self.value = row.get("value")
+
+    def to_json(self) -> dict:
+        json_dict = {
+            "dataElement": self.dataElement,
+            "period": self.period,
+            "orgUnit": self.orgUnit,
+            "categoryOptionCombo": self.categoryOptionCombo,
+            "attributeOptionCombo": self.attributeOptionCombo,
+            "value": self.value,
+        }
+        # if self.category_combo is not None:
+        #     json_dict["categoryCombo"] = self.category_combo
+
+        # return {k: v for k, v in json_dict.items() if v is not None} # this could also work
+        return json_dict
+
+    def to_delete_json(self) -> dict:
+        json_dict = {
+            "dataElement": self.dataElement,
+            "period": self.period,
+            "orgUnit": self.orgUnit,
+            "categoryOptionCombo": self.categoryOptionCombo,
+            "attributeOptionCombo": self.attributeOptionCombo,
+            "value": "",
+            "comment": "deleted value",
+        }
+        return json_dict
+
+    def _check_attributes(self, exclude_value=False):
+        # List of attributes to check, optionally excluding the 'value' attribute
+        attributes = [self.dataElement, self.period, self.orgUnit, self.categoryOptionCombo, self.attributeOptionCombo]
+        if not exclude_value:
+            attributes.append(self.value)
+
+        # Return True if all attributes are not None
+        return all(attr is not None for attr in attributes)
+
+    def is_valid(self):
+        # Check if all attributes are valid (None check)
+        return self._check_attributes(exclude_value=False)
+
+    def is_to_delete(self):
+        # Check if all attributes except 'value' are not None and 'value' is None
+        return self._check_attributes(exclude_value=True) and self.value is None
+
+    def __str__(self):
+        return f"DataPoint({self.dataType} id:{self.dataElement} pe:{self.period} ou:{self.orgUnit} value:{self.value})"
+
+
+# Helper class definition to store/create the correct OU JSON format for creation/update
+class OrgUnitObj:
+    def __init__(self, orgUnit_row: pd.Series):
+        """Create a new org unit instance.
+
+        Parameters
+        ----------
+        orgUnit_row : pandas series
+            Expects columns with names :
+                ['id', 'name', 'shortName', 'openingDate', 'closedDate', 'parent','level', 'path', 'geometry']
+        """
+        self.initialize_from(orgUnit_row.squeeze(axis=0))
+
+    def initialize_from(self, row: pd.Series):
+        # let's keep names consistent
+        self.id = row.get("id")
+        self.name = row.get("name")
+        self.shortName = row.get("shortName")
+        self.openingDate = row.get("openingDate")
+        self.closedDate = row.get("closedDate")
+        self.parent = row.get("parent")
+        geometry = row.get("geometry")
+        self.geometry = json.loads(geometry) if isinstance(geometry, str) else geometry
+
+    def to_json(self) -> dict:
+        json_dict = {
+            "id": self.id,
+            "name": self.name,
+            "shortName": self.shortName,
+            "openingDate": self.openingDate,
+            "closedDate": self.closedDate,
+            "parent": {"id": self.parent.get("id")} if self.parent else None,
+        }
+        if self.geometry:
+            geometry = json.loads(self.geometry) if isinstance(self.geometry, str) else self.geometry
+            json_dict["geometry"] = {
+                "type": geometry["type"],
+                "coordinates": geometry["coordinates"],
+            }
+        return {k: v for k, v in json_dict.items() if v is not None}
+
+    def is_valid(self):
+        if self.id is None:
+            return False
+        if self.name is None:
+            return False
+        if self.shortName is None:
+            return False
+        if self.openingDate is None:
+            return False
+        if self.parent is None:
+            return False
+
+        return True
+
+    def __str__(self):
+        return f"OrgUnitObj({self.id}, {self.name})"
+
+    def copy(self):
+        attributes = self.to_json()
+        new_instance = OrgUnitObj(pd.Series(attributes))
+        return new_instance
