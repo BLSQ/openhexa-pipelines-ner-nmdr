@@ -1,43 +1,286 @@
 {
 	"EXTRACT_SETTINGS": {
-		"NUMBER_MONTHS_WINDOW": 5,
-		"STARTDATE": "202411",
+		"NUMBER_MONTHS_WINDOW": 4,
+		"STARTDATE": "202412",
 		"ENDDATE": "202412",		
-		"DHIS2_CONNECTION": "dhis2-snis-niger"
+		"DHIS2_CONNECTION": "dhis2-snis-niger",
+        "OVERWRITE" : true
 	},
 	"DATA_ELEMENTS" : {
 		"ORG_UNIT_LEVEL" : 5,
 		"IDS": [],
-        "FREQUENCY" : "Monthly"
+        "FREQUENCY" : "Monthly",
+        "CAT_OPTION_COMBOS" : [],
+        "ATTR_OPTION_COMBOS" : []
 	},
 	"DATA_SETS": {
-        "BsMf0wqUZOX": {
+		"BsMf0wqUZOX": {
             "DATA_ELEMENTS": [
-                "j5m1I1GaJXW"
+                "j5m1I1GaJXW",
+                "C4IOlaNaTfC",
+                "WQK4ah3EXHe",
+                "vn1KKa7g8nh",
+                "agrhegJtqgN",
+                "XJ9JRrgSmBZ",
+                "yywOY8XreAN",
+                "diltFDZuZom",
+                "Z7vl1v45xzP",
+                "QUyymzBhPyn",
+                "OXnOP0CTfUG",
+                "X5APJ9Aa0IQ",
+                "Lpc5cvyHsj6"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_OPTION_COMBOS" : [
-                "HllvX50cXC0"
-            ]
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "bV69CDkLJB9__1": {
+            "DATA_ELEMENTS": [
+                "gGSrUsfKZKs",
+                "hL3WOkhfxo3"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "bV69CDkLJB9__2": {
+            "DATA_ELEMENTS": [
+                "PavbxlgreSC",
+                "tEqFtDVL2Y6"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["q1azzrxngRT"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "I9Zh7UanMom": {
+            "DATA_ELEMENTS": [
+                "sg8fYeRcBNv",
+                "dQEMnnClMEz",
+                "Smvz5j4qO1a",
+                "KKcyb25Tx7V",
+                "wz3lcK0sRqX"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "ibafcZot7pS__1": {
+            "DATA_ELEMENTS": [
+                "BjCyMF2Thxn",
+                "WYjv6xCXFU5"
+            ],
+            "FREQUENCY": "Yearly",
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "ibafcZot7pS__2": {
+            "DATA_ELEMENTS": [
+                "oQDuu133T20",
+                "wftF5ee9Cfq",
+                "N4hjQJA790B",
+                "MsgXv8TY6Nv",
+                "Wr3Fxnh61LZ",
+                "mEyVFwBw2QV",
+                "iIS0MGyL3EL"
+            ],
+            "FREQUENCY": "Yearly",
+            "CAT_COMBOS": ["rMT2VxfzxT8"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "ki7YKOfyxjf": {
+            "DATA_ELEMENTS": [
+                "VJN9TulWOl7",
+                "SE8vUT7xeWO",
+                "nJI3Bjb2bwx",
+                "ScFIzTswCih",
+                "IcxzDQ2iViL",
+                "f00QZis2J3n"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "kl1MGZq8a3V": {
+            "DATA_ELEMENTS": [
+                "wuFqZyTQrh8",
+                "dgDSp1ikc1E",
+                "VsKt1iT158T",
+                "JgIxJ5jdTFl",
+                "wuIvQlLQsmx",
+                "LPAoTYbUUv2",
+                "DwS5gbMRXXb",
+                "eCPNnbmi1Kx",
+                "oPJNsvXQ03A",
+                "J34FPWmTsOS"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "LUo8tmRIJc9": {
+            "DATA_ELEMENTS": [
+                "qSDg11SqXmI",
+                "DLrfnBPUmH2",
+                "dl7lZ8HoO1K",
+                "S4S3iPZMvPb",
+                "Hc1bP08WsJf",
+                "Dq6jCpvgXjN",
+                "GWVBGrF5JOd"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "MzSFs39u6OR__1": {
+            "DATA_ELEMENTS": [
+                "azdUYKPccDe"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "MzSFs39u6OR__2": {
+            "DATA_ELEMENTS": [
+                "Uk6UmYQp0Pd"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["x20cxkzJpJu"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "RvGGlMspioa": {
+            "DATA_ELEMENTS": [
+                "N9UCy8cxnSI",
+                "XUjhVbewQ7G",
+                "vCNFlhQFnys",
+                "UlOY6GD2VYI",
+                "CaTs5AotVTU",
+                "f5u0c1L8aEA",
+                "jl5fFwRBiJn",
+                "eWc0c41ELYV"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
         },
         "TIsYA3E2SAS": {
             "DATA_ELEMENTS": [
                 "Qdir1G9j4mr",
-                "O3eBxEPCtB9"
+                "O3eBxEPCtB9",
+                "j1kcYwWHbID",
+                "tTWIVYglwEa",
+                "E1kxSrVXeDc",
+                "BmcnecPF7T9",
+                "lZS03EiPQB7",
+                "j600CkX8zRD",
+                "MQvkPJC6crG"
             ],
             "FREQUENCY": "Yearly",
-            "CAT_OPTION_COMBOS" : [
-                "HllvX50cXC0"
-            ]
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
         },
         "tRHCgvQfhdn": {
             "DATA_ELEMENTS": [
-                "TgrtU8TMzug"                
+                "TgrtU8TMzug",
+                "DIZIBspu43y",
+                "C3AAuRBVzet",
+                "VtYoXZFo8qC",
+                "ZP8VdhDoKaX",
+                "UhmSYfWIj5r"
             ],
             "FREQUENCY": "Weekly",
-            "CAT_OPTION_COMBOS" : [
-                "Xj9ayPI0QYh"
-            ]
+            "CAT_COMBOS": ["TjEf8qyAInA"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "xjRfPiFN9eI": {
+            "DATA_ELEMENTS": [
+                "wqaz3mhPxo1",
+                "iCHIeDQggT2",
+                "hx5wUPZ3D63",
+                "jyVvdVtPkkk",
+                "wb1k72Xvz6B",
+                "GnVJKIAdBod",
+                "fmv20fAaWmx",
+                "gy7C34pA2AU",
+                "xMM1FVZWUx8",
+                "AxLcQo44Sv9",
+                "dsXcPMtUooE",
+                "PDevuL8tEMo",
+                "wAUIas82A4D",
+                "NL38Y684rE6",
+                "xhBKQaYRwJN",
+                "QmMORp8yc7U",
+                "Pv4vYEgPThy",
+                "sP6L94Z4elg",
+                "flahgua5KNH",
+                "waAZJagFB9j",
+                "MbguQtldBwk",
+                "c6v0GcCDwvL",
+                "uD01eLpNu6K",
+                "qrvZ2FcgVbB",
+                "VRXnh6FDs2Q",
+                "ziMP2SYrnx2",
+                "gHYYpTikrLM",
+                "gftFmeehFkE",
+                "LUPjt1EBmhR",
+                "nwEh4UNzJtQ",
+                "wyiiMtAEUdd",
+                "qmhPsG49qyV",
+                "vakogX9m8CV",
+                "unMBXlQhH4u",
+                "vBNKiqkZj3v",
+                "SjmLsNkN7Pe",
+                "ocHajKW7EW7",
+                "JBsrZvmYF0u",
+                "rLeq0dx9g30",
+                "wdmvuieHnik",
+                "OM9H2abGxFs",
+                "UgqpWZRxHhj",
+                "iHcf7HkAAKf",
+                "Zv29QAunFqk",
+                "buDt5P5JJcK",
+                "L4vRYiXFsQG",
+                "rsVf3oYKeq0",
+                "iIMKNIHtcCN",
+                "VXbKUiNFcu8",
+                "Au3pCG0VKZJ",
+                "ZjJe1VcxXdH",
+                "qzXpfSGTJ8z",
+                "yfKMdP4nbZm",
+                "n6BOrx3aVeD",
+                "HTEEiCILRty",
+                "z4wHbnviL7N",
+                "gcrNAlgKpj3",
+                "ynqUWCDkPaz",
+                "dBLhIcbWBea",
+                "zEtbGWsFv7B",
+                "eLxBMDXfoCM",
+                "ZUY6ikjmSSm",
+                "N3zEQYlfn8g",
+                "dUyOE6IeSRy",
+                "tWfGh236ECt",
+                "eSWR9wYrjNF",
+                "raGMxi5pfUt",
+                "Flmv4NvjG7B",
+                "JVCMNBOTzXb",
+                "cBYRlaZ3jCg",
+                "u2JEDreJCLF",
+                "hZXQWzjhiM4",
+                "JePcChmjQ8l",
+                "nVKb0y2icJQ",
+                "L8IpYy6Wm93",
+                "fyaI6KDW3rY"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "zjMn0pPANgL": {
+            "DATA_ELEMENTS": [
+                "mc3m82ok8Kq"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["IXvniuzEzfx"],
+            "CAT_OPTION_COMBOS": []
         }
 	},
 	"RATE_UIDS": {

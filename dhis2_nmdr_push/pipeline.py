@@ -9,6 +9,8 @@ from openhexa.sdk import current_run, parameter, pipeline, workspace
 from openhexa.toolbox.dhis2 import DHIS2
 from utils import (
     Queue,
+    DataPoint,
+    OrgUnitObj,
     load_files_with_pattern,
     read_parquet_extract,
     split_list,
@@ -113,7 +115,9 @@ def connect_to_dhis2(config: dict, cache_dir: str) -> DHIS2:
         raise Exception(f"Error while connecting to DHIS2 {config['PUSH_SETTINGS']['DHIS2_CONNECTION']}: {e}") from e
 
 
-def push_organisation_units(root: Path, extract_pipeline_path: Path, dhis2_client_target: DHIS2, config: dict) -> None:
+def push_organisation_units(
+    root: Path, extract_pipeline_path: Path, dhis2_client_target: DHIS2, config: dict, run: bool
+) -> None:
     """Handle creation and updates of organisation units in the target DHIS2 (incremental approach only).
 
     Use the previously extracted pyramid (full) stored as dataframe as input.
@@ -127,7 +131,12 @@ def push_organisation_units(root: Path, extract_pipeline_path: Path, dhis2_clien
         run_task (bool): Whether to run the task.
         config (dict): Configuration dictionary containing DHIS2 connection settings.
     """
+    if not run:
+        current_run.log_info("Organisation units push task is skipped.")
+        return True
+
     current_run.log_info("Starting organisation units push.")
+
     report_path = Path(root) / "logs" / "organisationUnits"
     configure_login(logs_path=report_path, task_name="organisation_units")
 
@@ -176,8 +185,8 @@ def push_organisation_units(root: Path, extract_pipeline_path: Path, dhis2_clien
                     orgunit_target["geometry"] = None
                     current_run.log_warning("DHIS2 version not compatible with geometry.Geometry data will be ignored.")
                 push_orgunits_update(
-                    orgUnit_source=orgunit_source,
-                    orgUnit_target=orgunit_target,
+                    orgunit_source=orgunit_source,
+                    orgunit_target=orgunit_target,
                     matching_ou_ids=ou_matching,
                     dhis2_client_target=dhis2_client_target,
                     report_path=report_path,
@@ -209,35 +218,12 @@ def push_extracts(
         run (bool): Whether to run the extracts push task.
     """
     if not run:
+        current_run.log_info("Extracts push task is skipped.")
         return True
 
-    current_run.log_info("Starting analytic extracts push.")
-    report_path = root / "logs" / "extracts"
-    configure_login(logs_path=report_path, task_name="extracts")
-    db_path = extract_pipeline_path / "config" / ".queue.db"
-
-    # Parameters for the import
-    import_strategy = config["PUSH_SETTINGS"].get("IMPORT_STRATEGY")
-    if import_strategy is None:
-        import_strategy = "CREATE_AND_UPDATE"  # CREATE, UPDATE, CREATE_AND_UPDATE
-
-    dry_run = config["PUSH_SETTINGS"].get("DRY_RUN")
-    if dry_run is None:
-        dry_run = True  # True or False
-
-    max_post = config["PUSH_SETTINGS"].get("MAX_POST")
-    if max_post is None:
-        max_post = 500  # number of datapoints per POST request
-
-    # log parameters
-    logging.info(f"Import strategy: {import_strategy} - Dry Run: {dry_run} - Max Post elements: {max_post}")
-    current_run.log_info(
-        f"Pushing data elemetns with parameters import_strategy: {import_strategy}, "
-        f"dry_run: {dry_run}, max_post: {max_post}"
+    push_queue, import_strategy, dry_run, max_post, report_path = initialize_push_extract(
+        root, extract_pipeline_path, config
     )
-
-    # push queue (look the file -> pipelines/dhis2_nmdr_push/config/db_reset_utils.ipynb)
-    push_queue = Queue(db_path)
 
     try:
         dataelement_mappings = config.get("DATA_ELEMENT_MAPPINGS")
@@ -270,35 +256,21 @@ def push_extracts(
                 continue
 
             # Use dictionary mappings to replace UIDS, OrgUnits, COC and AOC..
-            df = apply_dataelement_mappings(datapoints_df=extract_data.copy(), mappings=dataelement_mappings)
+            df = apply_dataelement_mappings(datapoints_df=extract_data, mappings=dataelement_mappings)
             df = apply_rate_mappings(datapoints_df=df, mappings=rate_mappings)
             # df = apply_indicator_mappings(datapoints_df=df, mappings=acm_mappings)
 
-            # Set values of 'INDICATOR' to INTEGER, otherwise these are ignored by DHIS2.
-            indicator_mask = df.data_type == "INDICATOR"
-            df.loc[indicator_mask, "value"] = df.loc[indicator_mask, "value"].astype(float).astype(int).astype(str)
-
-            # mandatory fields in the input dataset
-            mandatory_fields = [
-                "dx_uid",
-                "period",
-                "org_unit",
-                "category_option_combo",
-                # "category_combo",  # we need to include this in the extract table format
-                "attribute_option_combo",
-                "value",
-            ]
-            df = df[mandatory_fields]
-
-            # Sort the dataframe by org_unit to reduce the time (hopefully)
-            df = df.sort_values(by=["org_unit"], ascending=True)
+            df = format_dataframe_before_push(df)
 
             # convert the datapoints to json and check if they are valid
             # check the implementation of DataPoint class for the valid fields (mandatory)
             datapoints_valid, datapoints_not_valid, datapoints_to_delete = select_transform_to_json(data_values=df)
 
             # log not valid datapoints
-            log_ignored_or_na(report_path=report_path, datapoint_list=datapoints_not_valid)
+            if len(datapoints_not_valid) > 0:
+                log_ignored_or_na(report_path=report_path, datapoint_list=datapoints_not_valid)
+            else:
+                current_run.log_info("No not valid datapoints found.")
 
             # datapoints set to NA
             if len(datapoints_to_delete) > 0:
@@ -318,6 +290,8 @@ def push_extracts(
                 current_run.log_info(msg)
                 logging.info(msg)
                 log_summary_errors(summary_na)
+            else:
+                current_run.log_info("No datapoints to delete found.")
 
             current_run.log_info(f"Pushing {len(datapoints_valid)} valid data elements for period {current_period}.")
             # push data
@@ -342,6 +316,59 @@ def push_extracts(
 
     except Exception as e:
         raise Exception(f"Analytic extracts task error: {e}") from e
+
+
+def format_dataframe_before_push(df: pd.DataFrame) -> pd.DataFrame:
+    """Format the DataFrame before pushing to DHIS2."""
+    # mandatory fields in the input dataset
+    mandatory_fields = [
+        "dx_uid",
+        "period",
+        "org_unit",
+        "category_option_combo",
+        "attribute_option_combo",
+        "value",
+    ]
+    df = df[mandatory_fields]
+
+    # Sort the dataframe by org_unit to reduce the time (hopefully)
+    df = df.sort_values(by=["org_unit"], ascending=True)
+
+    return df
+
+
+def initialize_push_extract(root, extract_pipeline_path, config):
+    """Initialize the push extracts task by setting up logging and parameters."""
+    current_run.log_info("Starting analytic extracts push.")
+
+    report_path = root / "logs" / "extracts"
+    configure_login(logs_path=report_path, task_name="extracts")
+    db_path = extract_pipeline_path / "config" / ".queue.db"
+
+    # Parameters for the import
+    import_strategy = config["PUSH_SETTINGS"].get("IMPORT_STRATEGY")
+    if import_strategy is None:
+        import_strategy = "CREATE_AND_UPDATE"  # CREATE, UPDATE, CREATE_AND_UPDATE
+
+    dry_run = config["PUSH_SETTINGS"].get("DRY_RUN")
+    if dry_run is None:
+        dry_run = True  # True or False
+
+    max_post = config["PUSH_SETTINGS"].get("MAX_POST")
+    if max_post is None:
+        max_post = 500  # number of datapoints per POST request
+
+    # log parameters
+    logging.info(f"Import strategy: {import_strategy} - Dry Run: {dry_run} - Max Post elements: {max_post}")
+    current_run.log_info(
+        f"Pushing data elements with parameters import_strategy: {import_strategy}, "
+        f"dry_run: {dry_run}, max_post: {max_post}"
+    )
+
+    # push queue (look the file -> pipelines/dhis2_nmdr_push/config/db_reset_utils.ipynb)
+    push_queue = Queue(db_path)
+
+    return push_queue, import_strategy, dry_run, max_post, report_path
 
 
 def configure_login(logs_path: Path, task_name: str):
@@ -383,147 +410,6 @@ def log_summary_errors(summary: dict):
                 logging.error(f"Error response : {error_response}")
                 for i_r, rejected in enumerate(rejected_list, start=1):
                     logging.error(f"Rejected data point {i_r}: {rejected}")
-
-
-# Helper class definition to store/create the correct OU JSON format for creation/update
-class OrgUnitObj:
-    def __init__(self, orgUnit_row: pd.Series):
-        """Create a new org unit instance.
-
-        Parameters
-        ----------
-        orgUnit_row : pandas series
-            Expects columns with names :
-                ['id', 'name', 'shortName', 'openingDate', 'closedDate', 'parent','level', 'path', 'geometry']
-        """
-        self.initialize_from(orgUnit_row.squeeze(axis=0))
-
-    def initialize_from(self, row: pd.Series):
-        # let's keep names consistent
-        self.id = row.get("id")
-        self.name = row.get("name")
-        self.shortName = row.get("shortName")
-        self.openingDate = row.get("openingDate")
-        self.closedDate = row.get("closedDate")
-        self.parent = row.get("parent")
-        geometry = row.get("geometry")
-        self.geometry = json.loads(geometry) if isinstance(geometry, str) else geometry
-
-    def to_json(self) -> dict:
-        json_dict = {
-            "id": self.id,
-            "name": self.name,
-            "shortName": self.shortName,
-            "openingDate": self.openingDate,
-            "closedDate": self.closedDate,
-            "parent": {"id": self.parent.get("id")} if self.parent else None,
-        }
-        if self.geometry:
-            geometry = json.loads(self.geometry) if isinstance(self.geometry, str) else self.geometry
-            json_dict["geometry"] = {
-                "type": geometry["type"],
-                "coordinates": geometry["coordinates"],
-            }
-        return {k: v for k, v in json_dict.items() if v is not None}
-
-    def is_valid(self):
-        if self.id is None:
-            return False
-        if self.name is None:
-            return False
-        if self.shortName is None:
-            return False
-        if self.openingDate is None:
-            return False
-        if self.parent is None:
-            return False
-
-        return True
-
-    def __str__(self):
-        return f"OrgUnitObj({self.id}, {self.name})"
-
-    def copy(self):
-        attributes = self.to_json()
-        new_instance = OrgUnitObj(pd.Series(attributes))
-        return new_instance
-
-
-# Helper class definition to store/create the correct DataElement JSON format
-class DataPoint:
-    def __init__(self, series_row: pd.Series):
-        """Create a new org unit instance.
-
-        Parameters
-        ----------
-        series_row : pandas series
-            Expects columns with names :
-                ['data_type',
-                'dx_uid',
-                'period',
-                'org_unit',
-                'category_option_combo',
-                'attribute_option_combo',
-                'rate_type',
-                'domain_type',
-                'value']
-        """
-        row = series_row.squeeze(axis=0)
-        self.dataType = row.get("data_type")
-        self.dataElement = row.get("dx_uid")
-        self.period = row.get("period")
-        self.orgUnit = row.get("org_unit")
-        self.categoryOptionCombo = row.get("category_option_combo")
-        # self.categoryOption = row.get("category_option")
-        self.attributeOptionCombo = row.get("attribute_option_combo")
-        self.value = row.get("value")
-
-    def to_json(self) -> dict:
-        json_dict = {
-            "dataElement": self.dataElement,
-            "period": self.period,
-            "orgUnit": self.orgUnit,
-            "categoryOptionCombo": self.categoryOptionCombo,
-            "attributeOptionCombo": self.attributeOptionCombo,
-            "value": self.value,
-        }
-        # if self.category_combo is not None:
-        #     json_dict["categoryCombo"] = self.category_combo
-
-        # return {k: v for k, v in json_dict.items() if v is not None} # this could also work
-        return json_dict
-
-    def to_delete_json(self) -> dict:
-        json_dict = {
-            "dataElement": self.dataElement,
-            "period": self.period,
-            "orgUnit": self.orgUnit,
-            "categoryOptionCombo": self.categoryOptionCombo,
-            "attributeOptionCombo": self.attributeOptionCombo,
-            "value": "",
-            "comment": "deleted value",
-        }
-        return json_dict
-
-    def _check_attributes(self, exclude_value=False):
-        # List of attributes to check, optionally excluding the 'value' attribute
-        attributes = [self.dataElement, self.period, self.orgUnit, self.categoryOptionCombo, self.attributeOptionCombo]
-        if not exclude_value:
-            attributes.append(self.value)
-
-        # Return True if all attributes are not None
-        return all(attr is not None for attr in attributes)
-
-    def is_valid(self):
-        # Check if all attributes are valid (None check)
-        return self._check_attributes(exclude_value=False)
-
-    def is_to_delete(self):
-        # Check if all attributes except 'value' are not None and 'value' is None
-        return self._check_attributes(exclude_value=True) and self.value is None
-
-    def __str__(self):
-        return f"DataPoint({self.dataType} id:{self.dataElement} pe:{self.period} ou:{self.orgUnit} value:{self.value})"
 
 
 def push_orgunits_create(ou_df: pd.DataFrame, dhis2_client_target: DHIS2, report_path: str, dry_run: bool) -> None:
@@ -862,7 +748,6 @@ def build_id_indexes(ou_source: pd.DataFrame, ou_target: pd.DataFrame, ou_matchi
     }
 
 
-# NOTE: CHECK THIS FUNCTION!! Category option default selection needs fixing
 def apply_dataelement_mappings(datapoints_df: pd.DataFrame, mappings: dict) -> pd.DataFrame:
     """All matching ids will be replaced.
 
@@ -872,75 +757,37 @@ def apply_dataelement_mappings(datapoints_df: pd.DataFrame, mappings: dict) -> p
     -------
     pd.DataFrame: DataFrame with updated data points based on the mappings.
     """
+    dataelements = datapoints_df["data_type"] == "DATAELEMENT"
+
     uids_to_replace = set(datapoints_df["dx_uid"]).intersection(mappings.get("UIDS", {}))
     if len(uids_to_replace) > 0:
         current_run.log_info(f"{len(uids_to_replace)} OU UIDS to be replaced using mappings.")
-        datapoints_df.loc[:, "dx_uid"] = datapoints_df["dx_uid"].replace(mappings.get("UIDS", {}))
-
-    # (Ignore) Org units mapping, not sure if this is needed (org units are synced in the previous step)
-    # orunits_to_replace = list(set(datapoints_df.org_unit).intersection(set(mappings.get("ORG_UNITS", {}).keys())))
-    # if len(orunits_to_replace) > 0:
-    #     current_run.log_info(f"{len(orunits_to_replace)} Org units will be replaced using mappings.")
-    #     datapoints_df.loc[:, "org_unit"] = datapoints_df["org_unit"].replace(mappings.get("ORG_UNITS", {}))
-
-    # map category option combo default, replace None values by Default COC id
-    coc_default = mappings.get("CAT_OPTION_COMBOS").get("DEFAULT")
-    if coc_default:
-        current_run.log_info(f"Using {coc_default} default COC id.")
-        datapoints_df.loc[:, "category_option_combo"] = datapoints_df["category_option_combo"].replace(
-            {None: coc_default}
+        datapoints_df.loc[dataelements, "dx_uid"] = datapoints_df.loc[dataelements, "dx_uid"].replace(
+            mappings.get("UIDS", {})
         )
 
-    # map category option combo values. This should handle the format of the config file:
-    # "CAT_OPTION_COMBOS": {
-    #     "DEFAULT" : "HllvX50cXC0",
-    #     "UIDS" : {
-    #         "uid1" : "udi1new",
-    #         "uid2" : "udi2new"
-    #     }
-    # },
-    coc_to_replace = mappings.get("CAT_OPTION_COMBOS").get("UIDS", {})  # dictionary of COC mappings
-    if len(coc_to_replace) > 0:
-        current_run.log_info(f"{len(coc_to_replace)} data elements COC will be replaced using mappings.")
-        datapoints_df.loc[:, "category_option_combo"] = datapoints_df["category_option_combo"].replace(coc_to_replace)
+    mapping_types = [
+        ("CAT_OPTION_COMBOS", "category_option_combo"),
+        ("ATTR_OPTION_COMBOS", "attribute_option_combo"),
+    ]
+    for mapping_key, column_name in mapping_types:
+        default_id = mappings.get(mapping_key).get("DEFAULT")
+        if default_id:
+            current_run.log_info(f"Using {default_id} default {column_name} id.")
+            datapoints_df.loc[dataelements, column_name] = datapoints_df.loc[dataelements, column_name].replace(
+                {None: default_id}
+            )
 
-    # map attribute option combo
-    aoc_default = mappings["ATTR_OPTION_COMBOS"].get("DEFAULT", None)
-    if aoc_default:
-        current_run.log_info(f"Using {aoc_default} default AOC id.")
-        datapoints_df.loc[:, "attribute_option_combo"] = datapoints_df["attribute_option_combo"].replace(
-            {None: aoc_default}
-        )
-
-    # NOTE: same idea as for COC
-    aoc_to_replace = mappings.get("ATTR_OPTION_COMBOS").get("UIDS", {})  # dictionary of AOC mappings
-    if len(aoc_to_replace) > 0:
-        current_run.log_info(f"{len(aoc_to_replace)} data elements AOC will be replaced using mappings.")
-        datapoints_df.loc[:, "attribute_option_combo"] = datapoints_df["attribute_option_combo"].replace(aoc_to_replace)
+        to_replace = mappings.get(mapping_key).get("UIDS", {})
+        if to_replace:
+            current_run.log_info(f"{len(to_replace)} data elements {column_name} will be replaced using mappings.")
+            datapoints_df.loc[dataelements, column_name] = datapoints_df.loc[dataelements, column_name].replace(
+                to_replace
+            )
 
     return datapoints_df
 
 
-# NOTE: FIX THIS function to correctly handle the mappings for rate ("data_type=DATASET")
-# see the config file for the expected format:
-# "RATE_MAPPINGS":{
-# 	"kl1MGZq8a3V" : {
-# 		"REPORTING_RATE_ON_TIME": {  --> where this match, we set UID, COC, CO, AOC
-# 			"UID" : "gjxnrU1u4Ro",
-# 			"CAT_OPTION_COMBO": "HllvX50cXC0",
-# 			"CAT_COMBO" : "bjDvmb4bfuf",
-# 			"ATTR_OPTION_COMBO": "HllvX50cXC0"
-# 		}
-# 	}
-# }
-
-
-# ISSUE : The current format of the extract table, do not contain the category option value.
-# The solution would be to include it in the extract table (extract pipeline).
-#
-# IMPORTANT: When pushing to DHIS2, this CatOption should be included if exists!, otherwise
-# it should not be included in the POST call.
-#
 def apply_rate_mappings(datapoints_df: pd.DataFrame, mappings: dict) -> pd.DataFrame:
     """Map the rate data elements in the DataFrame using the provided mappings.
 
@@ -950,13 +797,22 @@ def apply_rate_mappings(datapoints_df: pd.DataFrame, mappings: dict) -> pd.DataF
     Returns:
         pd.DataFrame: DataFrame with updated rate data elements.
     """
-    for key, value in mappings.items():
-        # datapoints_df.loc[
-        #     ((datapoints_df.dx_uid == key) & (datapoints_df.rate_type == "REPORTING_RATE_ON_TIME")), "dx_uid"
-        # ] = value["REPORTING_RATE_ON_TIME"]
+    rates = datapoints_df["data_type"] == "DATASET"
+    replace = [
+        ("dx_uid", "UID"),
+        ("category_option_combo", "CAT_OPTION_COMBO"),
+        ("attribute_option_combo", "ATTR_OPTION_COMBO"),
+    ]
 
-        # Something should happen here!...... correct mappings following the config file structure!!
-        continue
+    for de_id_in, mapping in mappings.items():
+        rate_type = mapping.get("RATE_TYPE")
+        particular_rate = (datapoints_df["dx_uid"] == de_id_in) & rates & (datapoints_df["rate_type"] == rate_type)
+        if particular_rate.any():
+            for column, key in replace:
+                datapoints_df.loc[particular_rate, column] = mapping.get(key)
+            current_run.log_info(f"Mapped {de_id_in} to {mapping.get('UID')} with rate type {rate_type}.")
+        else:
+            current_run.log_info(f"No matching rate data element found for {de_id_in}. Skipping mappings.")
 
     return datapoints_df
 
@@ -980,6 +836,9 @@ def apply_rate_mappings(datapoints_df: pd.DataFrame, mappings: dict) -> pd.DataF
 #         datapoints_df.loc[datapoints_df.dx_uid.isin(mappings.get("UIDS", {}).values()), "category_option_combo"] = (
 #             coc_default
 #         )
+#      # Set values of 'INDICATOR' to INTEGER, otherwise these are ignored by DHIS2.
+#           indicator_mask = df.data_type == "INDICATOR"
+#           df.loc[indicator_mask, "value"] = df.loc[indicator_mask, "value"].astype(float).astype(int).astype(str)
 
 #     return datapoints_df
 
@@ -1001,14 +860,13 @@ def log_ignored_or_na(
     is_na : bool, optional
         If True, indicates datapoints are updated to NA; otherwise, they are ignored (default is False).
     """
-    if len(datapoint_list) > 0:
-        current_run.log_info(
-            f"{len(datapoint_list)} datapoints will be  {'updated to NA' if is_na else 'ignored'}."
-            f"Please check the report for details {report_path}"
-        )
-        logging.warning(f"{len(datapoint_list)} {data_type} datapoints to be ignored: ")
-        for i, ignored in enumerate(datapoint_list, start=1):
-            logging.warning(f"{i} DataElement {'NA' if is_na else ''} ignored: {ignored}")
+    current_run.log_info(
+        f"{len(datapoint_list)} datapoints will be  {'updated to NA' if is_na else 'ignored'}."
+        f"Please check the report for details {report_path}"
+    )
+    logging.warning(f"{len(datapoint_list)} {data_type} datapoints to be ignored: ")
+    for i, ignored in enumerate(datapoint_list, start=1):
+        logging.warning(f"{i} DataElement {'NA' if is_na else ''} ignored: {ignored}")
 
 
 if __name__ == "__main__":
