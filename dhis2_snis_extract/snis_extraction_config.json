@@ -31,20 +31,13 @@
                 "Lpc5cvyHsj6"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_COMBOS": ["sylSh3tajl6"],
             "CAT_OPTION_COMBOS": []
         },
-        "bV69CDkLJB9__1": {
+        "bV69CDkLJB9": {
             "DATA_ELEMENTS": [
                 "gGSrUsfKZKs",
-                "hL3WOkhfxo3"
-            ],
-            "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
-            "CAT_OPTION_COMBOS": []
-        },
-        "bV69CDkLJB9__2": {
-            "DATA_ELEMENTS": [
+                "hL3WOkhfxo3",
                 "PavbxlgreSC",
                 "tEqFtDVL2Y6"
             ],
@@ -61,20 +54,13 @@
                 "wz3lcK0sRqX"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_COMBOS": ["sylSh3tajl6"],
             "CAT_OPTION_COMBOS": []
         },
-        "ibafcZot7pS__1": {
+        "ibafcZot7pS": {
             "DATA_ELEMENTS": [
                 "BjCyMF2Thxn",
-                "WYjv6xCXFU5"
-            ],
-            "FREQUENCY": "Yearly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
-            "CAT_OPTION_COMBOS": []
-        },
-        "ibafcZot7pS__2": {
-            "DATA_ELEMENTS": [
+                "WYjv6xCXFU5",
                 "oQDuu133T20",
                 "wftF5ee9Cfq",
                 "N4hjQJA790B",
@@ -97,24 +83,31 @@
                 "f00QZis2J3n"
             ],
             "FREQUENCY": "Monthly",
+            "CAT_COMBOS": ["NfTZaMA5VPF"],
+            "CAT_OPTION_COMBOS": []
+        },
+        "kl1MGZq8a3V__1": {
+            "DATA_ELEMENTS": [
+                "LPAoTYbUUv2",
+                "DwS5gbMRXXb",
+                "eCPNnbmi1Kx"
+            ],
+            "FREQUENCY": "Monthly",
             "CAT_COMBOS": ["bjDvmb4bfuf"],
             "CAT_OPTION_COMBOS": []
         },
-        "kl1MGZq8a3V": {
+        "kl1MGZq8a3V__2": {
             "DATA_ELEMENTS": [
                 "wuFqZyTQrh8",
                 "dgDSp1ikc1E",
                 "VsKt1iT158T",
                 "JgIxJ5jdTFl",
                 "wuIvQlLQsmx",
-                "LPAoTYbUUv2",
-                "DwS5gbMRXXb",
-                "eCPNnbmi1Kx",
                 "oPJNsvXQ03A",
                 "J34FPWmTsOS"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_COMBOS": ["RV27dImHyMB"],
             "CAT_OPTION_COMBOS": []
         },
         "LUo8tmRIJc9": {
@@ -128,19 +121,12 @@
                 "GWVBGrF5JOd"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_COMBOS": ["NfTZaMA5VPF"],
             "CAT_OPTION_COMBOS": []
         },
-        "MzSFs39u6OR__1": {
+        "MzSFs39u6OR": {
             "DATA_ELEMENTS": [
-                "azdUYKPccDe"
-            ],
-            "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
-            "CAT_OPTION_COMBOS": []
-        },
-        "MzSFs39u6OR__2": {
-            "DATA_ELEMENTS": [
+                "azdUYKPccDe",
                 "Uk6UmYQp0Pd"
             ],
             "FREQUENCY": "Monthly",
@@ -159,7 +145,7 @@
                 "eWc0c41ELYV"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_COMBOS": ["sylSh3tajl6"],
             "CAT_OPTION_COMBOS": []
         },
         "TIsYA3E2SAS": {
