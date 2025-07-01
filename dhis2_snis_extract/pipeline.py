@@ -360,7 +360,8 @@ def handle_data_set_extracts(
 
     for dataset in config["DATA_SETS"].items():
         # I have introduced the __ so that I have the same dataset id twice in the dictionary.
-        dataset_id = dataset[0].split("__")[0]
+        dataset_name = dataset[0]
+        dataset_id = dataset_name.split("__")[0]
 
         # set parameters
         ou_ids = ds_metadata.filter(pl.col("id") == dataset_id)["organisation_units"].to_list()[0]
@@ -377,6 +378,7 @@ def handle_data_set_extracts(
         file_path = retrieve_dataset_extract_by_frequency(
             dhis2_client=dhis2_client,
             dataset_id=dataset_id,
+            dataset_name=dataset_name,
             data_elements=data_element_ids,
             org_units=ou_ids,
             month=month,
@@ -476,6 +478,7 @@ def retrieve_rate_extract_by_frequency(
 def retrieve_dataset_extract_by_frequency(
     dhis2_client: DHIS2,
     dataset_id: str,
+    dataset_name: str,
     data_elements: list[str],
     org_units: list[str],
     month: str,
@@ -496,6 +499,8 @@ def retrieve_dataset_extract_by_frequency(
         An instance of the DHIS2 client used for API calls to retrieve data.
     dataset_id : str
         dataset id (DHIS2 uid)
+    dataset_name : str
+        The name of the dataset (DHIS2 uid + suffix).
     data_elements : list[str]
         List of data element UIDs to extract.
     org_units : list[str]
@@ -518,9 +523,9 @@ def retrieve_dataset_extract_by_frequency(
         Returns a list of files corresponding to the downloaded period
     """
     if frequency == "yearly":
-        filename = f"ds_{dataset_id}_{month[:4]}.parquet"
+        filename = f"ds_{dataset_name}_{month[:4]}.parquet"
     else:
-        filename = f"ds_{dataset_id}_{month}.parquet"
+        filename = f"ds_{dataset_name}_{month}.parquet"
     file_path = output_path / frequency / filename
 
     # Download data
