@@ -1,41 +1,76 @@
 {
-	"EXTRACT_SETTINGS": {
-		"NUMBER_MONTHS_WINDOW": 4,
-		"STARTDATE": "202412",
-		"ENDDATE": "202412",		
-		"DHIS2_CONNECTION": "dhis2-snis-niger",
-        "OVERWRITE" : true
-	},
-	"DATA_ELEMENTS" : {
-		"ORG_UNIT_LEVEL" : 5,
-		"IDS": [],
-        "FREQUENCY" : "Monthly",
-        "CAT_OPTION_COMBOS" : [],
-        "ATTR_OPTION_COMBOS" : []
-	},
-	"DATA_SETS": {
-		"BsMf0wqUZOX": {
+    "EXTRACT_SETTINGS": {
+        "NUMBER_MONTHS_WINDOW": 4,
+        "STARTDATE": "202412",
+        "ENDDATE": "202412",
+        "DHIS2_CONNECTION": "dhis2-snis-niger",
+        "OVERWRITE": true
+    },
+    "DATA_ELEMENTS": {
+        "ORG_UNIT_LEVEL": 5,
+        "IDS": [],
+        "FREQUENCY": "Monthly",
+        "CAT_OPTION_COMBOS": [],
+        "ATTR_OPTION_COMBOS": []
+    },
+    "DATA_SETS": [
+        {
+            "DATA_SETS": [
+                "BsMf0wqUZOX"
+            ],
             "DATA_ELEMENTS": [
                 "j5m1I1GaJXW",
+                "vn1KKa7g8nh",
+                "yywOY8XreAN",
+                "QUyymzBhPyn"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": [
+                "sylSh3tajl6"
+            ],
+            "CAT_OPTION_COMBOS": []
+        },
+        {
+            "DATA_SETS": [
+                "BsMf0wqUZOX",
+                "RvGGlMspioa"
+            ],
+            "DATA_ELEMENTS": [
                 "C4IOlaNaTfC",
                 "WQK4ah3EXHe",
-                "vn1KKa7g8nh",
                 "agrhegJtqgN",
-                "XJ9JRrgSmBZ",
-                "yywOY8XreAN",
                 "diltFDZuZom",
                 "jl5fFwRBiJn",
                 "Z7vl1v45xzP",
-                "QUyymzBhPyn",
                 "OXnOP0CTfUG",
                 "X5APJ9Aa0IQ",
                 "Lpc5cvyHsj6"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["sylSh3tajl6"],
+            "CAT_COMBOS": [
+                "sylSh3tajl6"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "bV69CDkLJB9": {
+        {
+            "DATA_SETS": [
+                "BsMf0wqUZOX",
+                "RvGGlMspioa",
+                "I9Zh7UanMom"
+            ],
+            "DATA_ELEMENTS": [
+                "XJ9JRrgSmBZ"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": [
+                "sylSh3tajl6"
+            ],
+            "CAT_OPTION_COMBOS": []
+        },
+        {
+            "DATA_SETS": [
+                "bV69CDkLJB9"
+            ],
             "DATA_ELEMENTS": [
                 "gGSrUsfKZKs",
                 "hL3WOkhfxo3",
@@ -43,10 +78,15 @@
                 "tEqFtDVL2Y6"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["q1azzrxngRT"],
+            "CAT_COMBOS": [
+                "q1azzrxngRT"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "I9Zh7UanMom": {
+        {
+            "DATA_SETS": [
+                "I9Zh7UanMom"
+            ],
             "DATA_ELEMENTS": [
                 "sg8fYeRcBNv",
                 "dQEMnnClMEz",
@@ -55,10 +95,15 @@
                 "wz3lcK0sRqX"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["sylSh3tajl6"],
+            "CAT_COMBOS": [
+                "sylSh3tajl6"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "ibafcZot7pS": {
+        {
+            "DATA_SETS": [
+                "ibafcZot7pS"
+            ],
             "DATA_ELEMENTS": [
                 "BjCyMF2Thxn",
                 "WYjv6xCXFU5",
@@ -71,33 +116,61 @@
                 "iIS0MGyL3EL"
             ],
             "FREQUENCY": "Yearly",
-            "CAT_COMBOS": ["rMT2VxfzxT8"],
+            "CAT_COMBOS": [
+                "rMT2VxfzxT8"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "ki7YKOfyxjf": {
+        {
+            "DATA_SETS": [
+                "ki7YKOfyxjf"
+            ],
             "DATA_ELEMENTS": [
-                "VJN9TulWOl7",
-                "SE8vUT7xeWO",
                 "nJI3Bjb2bwx",
                 "ScFIzTswCih",
                 "IcxzDQ2iViL",
                 "f00QZis2J3n"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["NfTZaMA5VPF"],
+            "CAT_COMBOS": [
+                "NfTZaMA5VPF"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "kl1MGZq8a3V__1": {
+        {
+            "DATA_SETS": [
+                "ki7YKOfyxjf",
+                "LUo8tmRIJc9"
+            ],
+            "DATA_ELEMENTS": [
+                "VJN9TulWOl7",
+                "SE8vUT7xeWO"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": [
+                "NfTZaMA5VPF"
+            ],
+            "CAT_OPTION_COMBOS": []
+        },
+        {
+            "DATA_SETS": [
+                "kl1MGZq8a3V"
+            ],
             "DATA_ELEMENTS": [
                 "LPAoTYbUUv2",
                 "DwS5gbMRXXb",
                 "eCPNnbmi1Kx"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_COMBOS": [
+                "bjDvmb4bfuf"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "kl1MGZq8a3V__2": {
+        {
+            "DATA_SETS": [
+                "kl1MGZq8a3V"
+            ],
             "DATA_ELEMENTS": [
                 "wuFqZyTQrh8",
                 "dgDSp1ikc1E",
@@ -108,47 +181,93 @@
                 "J34FPWmTsOS"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["RV27dImHyMB"],
+            "CAT_COMBOS": [
+                "RV27dImHyMB"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "LUo8tmRIJc9": {
+        {
+            "DATA_SETS": [
+                "LUo8tmRIJc9"
+            ],
             "DATA_ELEMENTS": [
                 "qSDg11SqXmI",
-                "DLrfnBPUmH2",
                 "dl7lZ8HoO1K",
                 "S4S3iPZMvPb",
-                "Hc1bP08WsJf",
+                "Hc1bP08WsJf"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": [
+                "NfTZaMA5VPF"
+            ],
+            "CAT_OPTION_COMBOS": []
+        },
+        {
+            "DATA_SETS": [
+                "LUo8tmRIJc9",
+                "ki7YKOfyxjf"
+            ],
+            "DATA_ELEMENTS": [
+                "DLrfnBPUmH2",
                 "Dq6jCpvgXjN",
                 "GWVBGrF5JOd"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["NfTZaMA5VPF"],
+            "CAT_COMBOS": [
+                "NfTZaMA5VPF"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "MzSFs39u6OR": {
+        {
+            "DATA_SETS": [
+                "MzSFs39u6OR"
+            ],
             "DATA_ELEMENTS": [
                 "azdUYKPccDe",
                 "Uk6UmYQp0Pd"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["x20cxkzJpJu"],
+            "CAT_COMBOS": [
+                "x20cxkzJpJu"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "RvGGlMspioa": {
+        {
+            "DATA_SETS": [
+                "RvGGlMspioa"
+            ],
+            "DATA_ELEMENTS": [
+                "vCNFlhQFnys",
+                "f5u0c1L8aEA"
+            ],
+            "FREQUENCY": "Monthly",
+            "CAT_COMBOS": [
+                "sylSh3tajl6"
+            ],
+            "CAT_OPTION_COMBOS": []
+        },
+        {
+            "DATA_SETS": [
+                "RvGGlMspioa",
+                "BsMf0wqUZOX"
+            ],
             "DATA_ELEMENTS": [
                 "N9UCy8cxnSI",
                 "XUjhVbewQ7G",
-                "vCNFlhQFnys",
                 "UlOY6GD2VYI",
                 "CaTs5AotVTU",
-                "f5u0c1L8aEA",
                 "eWc0c41ELYV"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["sylSh3tajl6"],
+            "CAT_COMBOS": [
+                "sylSh3tajl6"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "TIsYA3E2SAS": {
+        {
+            "DATA_SETS": [
+                "TIsYA3E2SAS"
+            ],
             "DATA_ELEMENTS": [
                 "Qdir1G9j4mr",
                 "O3eBxEPCtB9",
@@ -161,10 +280,15 @@
                 "MQvkPJC6crG"
             ],
             "FREQUENCY": "Yearly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_COMBOS": [
+                "bjDvmb4bfuf"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "tRHCgvQfhdn": {
+        {
+            "DATA_SETS": [
+                "tRHCgvQfhdn"
+            ],
             "DATA_ELEMENTS": [
                 "TgrtU8TMzug",
                 "DIZIBspu43y",
@@ -174,10 +298,15 @@
                 "UhmSYfWIj5r"
             ],
             "FREQUENCY": "Weekly",
-            "CAT_COMBOS": ["TjEf8qyAInA"],
+            "CAT_COMBOS": [
+                "TjEf8qyAInA"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "xjRfPiFN9eI": {
+        {
+            "DATA_SETS": [
+                "xjRfPiFN9eI"
+            ],
             "DATA_ELEMENTS": [
                 "wqaz3mhPxo1",
                 "iCHIeDQggT2",
@@ -257,27 +386,33 @@
                 "fyaI6KDW3rY"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["bjDvmb4bfuf"],
+            "CAT_COMBOS": [
+                "bjDvmb4bfuf"
+            ],
             "CAT_OPTION_COMBOS": []
         },
-        "zjMn0pPANgL": {
+        {
+            "DATA_SETS": [
+                "zjMn0pPANgL",
+                "LUo8tmRIJc9"
+            ],
             "DATA_ELEMENTS": [
                 "mc3m82ok8Kq"
             ],
             "FREQUENCY": "Monthly",
-            "CAT_COMBOS": ["IXvniuzEzfx"],
+            "CAT_COMBOS": [
+                "IXvniuzEzfx"
+            ],
             "CAT_OPTION_COMBOS": []
         }
-	},
-	"RATE_UIDS": {
-        "kl1MGZq8a3V" : {
+    ],
+    "RATE_UIDS": {
+        "kl1MGZq8a3V": {
             "METRICS": {
                 "REPORTING_RATE_ON_TIME": "float"
             },
-            "FREQUENCY" : "Monthly"
-		}		
-	},
-    "INDICATORS" : {
-        
-    }
+            "FREQUENCY": "Monthly"
+        }
+    },
+    "INDICATORS": {}
 }
