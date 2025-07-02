@@ -366,6 +366,7 @@ def handle_data_set_extracts(
         if dataset_name in dict_done_names.keys():
             count = dict_done_names[dataset_name] + 1
             dict_done_names[dataset_name] = count
+            dataset_name = f"{dataset_name}__{count}"
         else:
             dict_done_names[dataset_name] = 1
 
