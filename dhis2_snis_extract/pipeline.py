@@ -17,7 +17,7 @@ from utils import (
 )
 
 
-@pipeline("dhis2_snis_extract", timeout=28800)
+@pipeline("dhis2_snis_extract", timeout=36000)
 @parameter(
     "extract_orgunits",
     name="Extract Organisation Units",
@@ -838,14 +838,15 @@ def validate_period_range(config: dict) -> None:
     """Validate that start and end are valid yyyymm values and ordered correctly."""
     start = config["EXTRACT_SETTINGS"].get("STARTDATE", None)
     end = config["EXTRACT_SETTINGS"].get("ENDDATE", None)
-    if start is None or end is None:
-        raise ValueError("Start or end period is missing.")
+    if start is not None:
+        validate_yyyymm(start)
 
-    validate_yyyymm(start)
-    validate_yyyymm(end)
+    if end is not None:
+        validate_yyyymm(end)
 
-    if start > end:
-        raise ValueError("Start period must not be after end period.")
+    if start is not None and end is not None:
+        if start > end:
+            raise ValueError("Start period must not be after end period.")
 
     return True
 
@@ -893,6 +894,8 @@ def get_monthly_periods(config: dict) -> list[str]:
         month_start = Month.from_string(start)
         month_end = Month.from_string(end)
         monthly_periods = [str(m) for m in month_start.get_range(month_end)]
+
+    current_run.log_info(f"Monthly periods to extract: {monthly_periods}")
 
     return monthly_periods
 
