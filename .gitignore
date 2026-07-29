@@ -180,3 +180,6 @@ workspace/
 # Misc
 .DS_Store
 .vscode
+
+# Claude
+AGENTS.md
