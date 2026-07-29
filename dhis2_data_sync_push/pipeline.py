@@ -31,7 +31,11 @@ def dhis2_data_sync_push(start_date: str, end_date: str) -> None:
     data_path = Path(workspace.files_path) / "pipelines" / "dhis2_data_sync_extracts" / "data"
     # config = load_configuration(pipeline_path / "configuration" / "push_config.json")
 
-    push_extracts(pipeline_path=pipeline_path, data_path=data_path, start_date=start_date, end_date=end_date)
+    try:
+        push_extracts(pipeline_path=pipeline_path, data_path=data_path, start_date=start_date, end_date=end_date)
+    except Exception as e:
+        current_run.log_error(f"Pipeline execution failed: {e}")
+        raise
     current_run.log_info("Pipeline execution completed.")
 
 
@@ -39,12 +43,16 @@ def push_extracts(pipeline_path: Path, data_path: Path, start_date: str, end_dat
     """Push data extracts to the target DHIS2 instance."""
     current_run.log_info("Starting data push.")
 
-    logger, logs_file = configure_logging(logs_path=Path("/home/jovyan/tmp/logs"), task_name="push_data")
-    # logger, logs_file = configure_logging(logs_path=pipeline_path / "logs", task_name="push_data")
+    # logger, logs_file = configure_logging(logs_path=Path("/home/jovyan/tmp/logs"), task_name="push_data")
+    logger, logs_file = configure_logging(logs_path=pipeline_path / "logs", task_name="push_data")  ## LOCAL
 
-    # load configuration
-    config_push = load_configuration(config_path=pipeline_path / "config" / "push_config.json")
-    dhis2_client_target = connect_to_dhis2(connection_str=config_push["SETTINGS"]["TARGET_DHIS2_CONNECTION"])
+    try:
+        # load configuration
+        config_push = load_configuration(config_path=pipeline_path / "configuration" / "push_config.json")
+        dhis2_client_target = connect_to_dhis2(connection_str=config_push["SETTINGS"]["TARGET_DHIS2_CONNECTION"])
+    except Exception as e:
+        current_run.log_error(f"Error occurred: {e}")
+        raise
 
     # Parameters for the api call
     import_strategy = config_push["SETTINGS"].get("IMPORT_STRATEGY", "CREATE_AND_UPDATE")
@@ -60,8 +68,8 @@ def push_extracts(pipeline_path: Path, data_path: Path, start_date: str, end_dat
         logger=logger,
     )
 
-    for extract in config_push.get("DATA_ELEMENT", {}).get("EXTRACTS", []):
-        current_run.log_info(f"Processing extract: {extract['name']}")
+    for extract in config_push.get("DATA_ELEMENTS", {}).get("EXTRACTS", []):
+        current_run.log_info(f"Processing extract: {extract['EXTRACT_UID']}")
         handle_data_element_extract_push(
             pusher=pusher,
             pipeline_path=pipeline_path,
@@ -87,9 +95,14 @@ def handle_data_element_extract_push(
     periods = resolve_periods(start_date, end_date, extract.get("FREQUENCY", "MONTHLY"))
     current_run.log_info(f"Pushing from: {periods[0]} to {periods[-1]} for extract: {extract['name']}")
 
+    ex_uid = extract.get("EXTRACT_UID")
+    if ex_uid is None:
+        current_run.log_error(f"Extract UID not found for extract: {extract.get('name')}. Skipping.")
+        return
+
     for period in periods:
         # Load the data to be pushed
-        data_file_path = data_path / extract["UID"] / f"data_{extract['UID']}_{period}.parquet"
+        data_file_path = data_path / ex_uid / f"data_{ex_uid}_{period}.parquet"
         if not data_file_path.exists():
             current_run.log_warning(f"Data file {data_file_path} not found. Skipping push for period {period}.")
             continue
@@ -102,7 +115,7 @@ def handle_data_element_extract_push(
             pusher.push_data(data_df=data_mapped)
             current_run.log_info(f"Pushed data for extract {data_file_path.name}")
         except Exception as e:
-            current_run.log_error(f"Failed to push data for extract {extract['UID']}. Error: {e}")
+            current_run.log_error(f"Failed to push data for extract {ex_uid}. Error: {e}")
         finally:
             save_logs(logs_file=logs_file, task_name="push_data")
 
