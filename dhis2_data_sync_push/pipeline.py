@@ -12,6 +12,15 @@ from utils import (
     save_logs,
 )
 
+DF_PUSH_SCHEMA = {
+    "dx": pl.String,
+    "period": pl.String,
+    "org_unit": pl.String,
+    "category_option_combo": pl.String,
+    "attribute_option_combo": pl.String,
+    "value": pl.String,
+}
+
 
 @pipeline("dhis2_data_sync_push")
 @parameter(
@@ -28,7 +37,7 @@ from utils import (
 def dhis2_data_sync_push(start_date: str, end_date: str) -> None:
     """Write your pipeline orchestration here."""
     pipeline_path = Path(workspace.files_path) / "pipelines" / "dhis2_data_sync_push"
-    data_path = Path(workspace.files_path) / "pipelines" / "dhis2_data_sync_extracts" / "data"
+    data_path = Path(workspace.files_path) / "pipelines" / "dhis2_data_sync_extract" / "data"
     # config = load_configuration(pipeline_path / "configuration" / "push_config.json")
 
     try:
@@ -93,23 +102,23 @@ def handle_data_element_extract_push(
     """Handle the push of a single extract."""
     # get dates and validate
     periods = resolve_periods(start_date, end_date, extract.get("FREQUENCY", "MONTHLY"))
-    current_run.log_info(f"Pushing from: {periods[0]} to {periods[-1]} for extract: {extract['name']}")
 
     ex_uid = extract.get("EXTRACT_UID")
     if ex_uid is None:
         current_run.log_error(f"Extract UID not found for extract: {extract.get('name')}. Skipping.")
         return
 
+    current_run.log_info(f"Pushing from: {periods[0]} to {periods[-1]} for extract: {ex_uid}")
     for period in periods:
         # Load the data to be pushed
-        data_file_path = data_path / ex_uid / f"data_{ex_uid}_{period}.parquet"
+        data_file_path = data_path / "extracts" / ex_uid / f"data_{ex_uid}_{period}.parquet"
         if not data_file_path.exists():
             current_run.log_warning(f"Data file {data_file_path} not found. Skipping push for period {period}.")
             continue
 
         data_df = pl.read_parquet(data_file_path)
         current_run.log_info(f"Loaded {len(data_df)} records from {data_file_path}.")
-        data_mapped = apply_data_element_mappings(data_df, extract.get("MAPPING", {}))
+        data_mapped = apply_data_element_mappings(data_df, extract.get("MAPPINGS", {}))
 
         try:
             pusher.push_data(data_df=data_mapped)
@@ -120,36 +129,31 @@ def handle_data_element_extract_push(
             save_logs(logs_file=logs_file, task_name="push_data")
 
 
-def apply_data_element_mappings(df: pl.DataFrame, extract: dict) -> pl.DataFrame:
+def apply_data_element_mappings(df: pl.DataFrame, mappings: dict) -> pl.DataFrame:
     """Applies indicator mappings to the extracted data.
 
     NOTE: It also FILTERS! indicator based on category option combo (COC) if specified in the extract configuration.
 
-    Parameters
-    ----------
-    df : pl.DataFrame
+    Args:
+    ----
+    df: pl.DataFrame
         DataFrame containing the extracted data.
-    extract : dict
-        This is a dictionary containing the extract mappings.
+    mappings: dict
+        Dictionary containing the indicator mappings.
 
-    Returns
+    Returns:
     -------
     pl.DataFrame
         DataFrame with mapped indicator.
     """
-    if len(extract) == 0:
+    if len(mappings) == 0:
         current_run.log_warning("No extract details provided, skipping indicator mappings.")
-        return df
-
-    extract_mappings = extract.get("MAPPINGS", {})
-    if len(extract_mappings) == 0:
-        current_run.log_warning("No extract mappings provided, skipping indicator mappings.")
         return df
 
     # Loop over the configured indicator mappings to filter by COC/AOC if provided
     chunks = []
     uid_mappings = {}
-    for uid, mapping in extract_mappings.items():
+    for uid, mapping in mappings.items():
         uid_mapping = mapping.get("UID")
         coc_mappings = mapping.get("CATEGORY_OPTION_COMBO", {})
         aoc_mappings = mapping.get("ATTRIBUTE_OPTION_COMBO", {})
@@ -157,9 +161,12 @@ def apply_data_element_mappings(df: pl.DataFrame, extract: dict) -> pl.DataFrame
         # Build a mask selection
         df_uid = df.filter(pl.col("dx") == uid)
         if coc_mappings:
-            coc_mappings_clean = clean_mapping(coc_mappings)
-            df_uid = df_uid.filter(pl.col("category_option_combo").is_in(list(coc_mappings_clean.keys())))
-            df_uid = df_uid.with_columns(pl.col("category_option_combo").replace(coc_mappings_clean))
+            if set(coc_mappings) == {"ALL"}:
+                df_uid = df_uid.with_columns(pl.lit(coc_mappings["ALL"]).alias("category_option_combo"))
+            else:
+                coc_mappings_clean = clean_mapping(coc_mappings)
+                df_uid = df_uid.filter(pl.col("category_option_combo").is_in(list(coc_mappings_clean.keys())))
+                df_uid = df_uid.with_columns(pl.col("category_option_combo").replace(coc_mappings_clean))
 
         if aoc_mappings:
             aoc_mappings_clean = clean_mapping(aoc_mappings)
@@ -169,11 +176,16 @@ def apply_data_element_mappings(df: pl.DataFrame, extract: dict) -> pl.DataFrame
         if uid_mapping:
             uid_mappings[uid] = uid_mapping
 
-        chunks.append(df_uid)
+        df_uid = (
+            df_uid.with_columns(pl.col("value").cast(pl.Float64))
+            .group_by(["dx", "period", "org_unit", "category_option_combo", "attribute_option_combo"])
+            .agg(pl.sum("value").alias("value"))
+        )
+        chunks.append(apply_schema(df_uid, DF_PUSH_SCHEMA))
 
     if len(chunks) == 0:
         current_run.log_warning("No data elements matched the provided mappings, returning empty dataframe.")
-        return pl.DataFrame(schema=df.schema)
+        return pl.DataFrame(schema=DF_PUSH_SCHEMA)
 
     df_filtered = pl.concat(chunks)
 
@@ -189,6 +201,19 @@ def apply_data_element_mappings(df: pl.DataFrame, extract: dict) -> pl.DataFrame
         df_filtered = df_filtered.with_columns(pl.col("dx").replace(uid_mappings_clean))
 
     return df_filtered
+
+
+def apply_schema(df: pl.DataFrame, schema: dict) -> pl.DataFrame:
+    """Selects and casts a DataFrame's columns to match a given schema.
+
+    Args:
+        df: Input DataFrame.
+        schema: Mapping of column name to polars dtype.
+
+    Returns:
+        DataFrame containing only the schema's columns (in schema order), cast to the schema's dtypes.
+    """
+    return df.select([pl.col(name).cast(dtype) for name, dtype in schema.items()])
 
 
 def clean_mapping(mapping: dict) -> dict:
