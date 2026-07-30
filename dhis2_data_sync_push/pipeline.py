@@ -3,6 +3,7 @@ from pathlib import Path
 import polars as pl
 from d2d_development.push import DHIS2Pusher
 from openhexa.sdk import current_run, parameter, pipeline, workspace
+from openhexa.toolbox.dhis2.dataframe import get_data_elements
 from utils import (
     configure_logging,
     connect_to_dhis2,
@@ -29,22 +30,27 @@ DF_PUSH_SCHEMA = {
     help="Start date of import (YYYYMM).",
     type=str,
     required=False,
-    default="201701",
+    default="201701",  # Historical data defaults.
 )
 @parameter(
-    code="end_date", name="End date", help="End date of import (YYYYMM).", type=str, required=False, default="201701"
-)  ## default="202112"
+    code="end_date",
+    name="End date",
+    help="End date of import (YYYYMM).",
+    type=str,
+    required=False,
+    default="202112",  # Historical data defaults.
+)
 def dhis2_data_sync_push(start_date: str, end_date: str) -> None:
     """Write your pipeline orchestration here."""
     pipeline_path = Path(workspace.files_path) / "pipelines" / "dhis2_data_sync_push"
     data_path = Path(workspace.files_path) / "pipelines" / "dhis2_data_sync_extract" / "data"
-    # config = load_configuration(pipeline_path / "configuration" / "push_config.json")
 
     try:
         push_extracts(pipeline_path=pipeline_path, data_path=data_path, start_date=start_date, end_date=end_date)
     except Exception as e:
         current_run.log_error(f"Pipeline execution failed: {e}")
         raise
+
     current_run.log_info("Pipeline execution completed.")
 
 
@@ -52,15 +58,15 @@ def push_extracts(pipeline_path: Path, data_path: Path, start_date: str, end_dat
     """Push data extracts to the target DHIS2 instance."""
     current_run.log_info("Starting data push.")
 
-    # logger, logs_file = configure_logging(logs_path=Path("/home/jovyan/tmp/logs"), task_name="push_data")
-    logger, logs_file = configure_logging(logs_path=pipeline_path / "logs", task_name="push_data")  ## LOCAL
+    logger, logs_file = configure_logging(logs_path=Path("/home/jovyan/tmp/logs"), task_name="push_data")
+    # logger, logs_file = configure_logging(logs_path=pipeline_path / "logs", task_name="push_data")  ## LOCAL
 
     try:
         # load configuration
         config_push = load_configuration(config_path=pipeline_path / "configuration" / "push_config.json")
         dhis2_client_target = connect_to_dhis2(connection_str=config_push["SETTINGS"]["TARGET_DHIS2_CONNECTION"])
     except Exception as e:
-        current_run.log_error(f"Error occurred: {e}")
+        current_run.log_error(f"{e}")
         raise
 
     # Parameters for the api call
@@ -77,26 +83,29 @@ def push_extracts(pipeline_path: Path, data_path: Path, start_date: str, end_dat
         logger=logger,
     )
 
+    # Retrieve data element details for DHIS2 import type matching
+    de_metadata = get_data_elements(dhis2_client_target)
     for extract in config_push.get("DATA_ELEMENTS", {}).get("EXTRACTS", []):
-        current_run.log_info(f"Processing extract: {extract['EXTRACT_UID']}")
         handle_data_element_extract_push(
-            pusher=pusher,
             pipeline_path=pipeline_path,
+            pusher=pusher,
             data_path=data_path,
             extract=extract,
             start_date=start_date,
             end_date=end_date,
+            de_metadata=de_metadata,
             logs_file=logs_file,
         )
 
 
 def handle_data_element_extract_push(
-    pusher: DHIS2Pusher,
     pipeline_path: Path,
+    pusher: DHIS2Pusher,
     data_path: Path,
     extract: dict,
     start_date: str,
     end_date: str,
+    de_metadata: pl.DataFrame,
     logs_file: Path,
 ) -> None:
     """Handle the push of a single extract."""
@@ -105,28 +114,61 @@ def handle_data_element_extract_push(
 
     ex_uid = extract.get("EXTRACT_UID")
     if ex_uid is None:
-        current_run.log_error(f"Extract UID not found for extract: {extract.get('name')}. Skipping.")
+        current_run.log_error(f"Extract UID not found for extract: '{extract.get('name')}'. Skipping.")
         return
 
-    current_run.log_info(f"Pushing from: {periods[0]} to {periods[-1]} for extract: {ex_uid}")
+    current_run.log_info(f"Pushing extract: '{ex_uid}' from: {periods[0]} to {periods[-1]}")
     for period in periods:
         # Load the data to be pushed
         data_file_path = data_path / "extracts" / ex_uid / f"data_{ex_uid}_{period}.parquet"
         if not data_file_path.exists():
-            current_run.log_warning(f"Data file {data_file_path} not found. Skipping push for period {period}.")
+            current_run.log_warning(f"Data file '{data_file_path}' not found. Skipping push for period {period}.")
             continue
 
-        data_df = pl.read_parquet(data_file_path)
-        current_run.log_info(f"Loaded {len(data_df)} records from {data_file_path}.")
-        data_mapped = apply_data_element_mappings(data_df, extract.get("MAPPINGS", {}))
+        # data_df = pl.read_parquet(data_file_path)
+        # current_run.log_info(f"Loaded {len(data_df)} records from '{data_file_path}'.")
+        data_df = load_extract_data(data_file_path)
 
         try:
-            pusher.push_data(data_df=data_mapped)
-            current_run.log_info(f"Pushed data for extract {data_file_path.name}")
+            data_mapped = apply_data_element_mappings(data_df, extract.get("MAPPINGS", {}))
         except Exception as e:
-            current_run.log_error(f"Failed to push data for extract {ex_uid}. Error: {e}")
+            current_run.log_error(f"Failed to apply mappings for extract '{ex_uid}'. Error: {e}")
+            raise
+
+        data_mapped = apply_data_element_value_types(data_mapped, de_metadata)
+
+        try:
+            pusher.push_data(apply_schema(data_mapped, DF_PUSH_SCHEMA))
+            current_run.log_info(f"Push finished for file: '{data_file_path.name}'")
+        except Exception as e:
+            current_run.log_error(f"Failed to push data for extract '{ex_uid}'. Error: {e}")
         finally:
-            save_logs(logs_file=logs_file, task_name="push_data")
+            save_logs(logs_file=logs_file, output_dir=pipeline_path / "logs")
+
+
+def load_extract_data(data_file_path: Path) -> pl.DataFrame:
+    """Loads a data extract Parquet file and cleans up literal 'None' string values.
+
+    Args:
+        data_file_path: Path to the Parquet file to load.
+
+    Returns:
+        DataFrame with 'value' cells storing the literal string "None" converted to actual null.
+    """
+    data_df = pl.read_parquet(data_file_path)
+    current_run.log_info(f"Loaded {len(data_df)} records from '{data_file_path}'.")
+
+    none_string_count = data_df.filter(pl.col("value") == "None").height
+    if none_string_count > 0:
+        current_run.log_warning(
+            f"Found {none_string_count} value(s) stored as the literal string 'None' in "
+            f"'{data_file_path.name}'; converting to actual null."
+        )
+        data_df = data_df.with_columns(
+            pl.when(pl.col("value") == "None").then(None).otherwise(pl.col("value")).alias("value")
+        )
+
+    return data_df
 
 
 def apply_data_element_mappings(df: pl.DataFrame, mappings: dict) -> pl.DataFrame:
@@ -179,7 +221,7 @@ def apply_data_element_mappings(df: pl.DataFrame, mappings: dict) -> pl.DataFram
         df_uid = (
             df_uid.with_columns(pl.col("value").cast(pl.Float64))
             .group_by(["dx", "period", "org_unit", "category_option_combo", "attribute_option_combo"])
-            .agg(pl.sum("value").alias("value"))
+            .agg(pl.when(pl.col("value").is_null().all()).then(None).otherwise(pl.sum("value")).alias("value"))
         )
         chunks.append(apply_schema(df_uid, DF_PUSH_SCHEMA))
 
@@ -246,6 +288,69 @@ def resolve_periods(start_date: str, end_date: str, frequency: str) -> list:
     if frequency == "YEARLY":
         return sorted(set(str(p[:4]) for p in ext_periods))
     return ext_periods
+
+
+def cast_numeric_data_element_value(
+    df: pl.DataFrame, de_id: str, dtype: pl.DataType, min_value: float | None = None
+) -> pl.DataFrame:
+    """Casts the value column to dtype for rows matching de_id, setting invalid values to None.
+
+    Args:
+        df: DataFrame containing the data.
+        de_id: Data element UID whose rows should be cast.
+        dtype: Target polars dtype (pl.Float64 or pl.Int64).
+        min_value: If set, casted values below it are treated as invalid.
+
+    Returns:
+        DataFrame with the value column updated for rows matching de_id.
+    """
+    casted = pl.col("value").cast(pl.Float64, strict=False)
+    if dtype != pl.Float64:
+        casted = casted.cast(dtype, strict=False)
+
+    is_invalid = casted.is_null()
+    if min_value is not None:
+        is_invalid = is_invalid | (casted < min_value)
+
+    invalid_count = df.filter((pl.col("dx") == de_id) & pl.col("value").is_not_null() & is_invalid).height
+    if invalid_count > 0:
+        type_label = "numeric" if dtype == pl.Float64 else "integer"
+        reason = f"negative or non-{type_label}" if min_value is not None else f"non-{type_label}"
+        current_run.log_warning(f"Data element '{de_id}' has {invalid_count} {reason} value(s) set to None.")
+
+    return df.with_columns(
+        pl.when((pl.col("dx") == de_id) & ~is_invalid)
+        .then(casted)
+        .when(pl.col("dx") == de_id)
+        .then(pl.lit(None, dtype=dtype))
+        .otherwise(pl.col("value"))
+        .alias("value")
+    )
+
+
+def apply_data_element_value_types(df: pl.DataFrame, de_metadata: pl.DataFrame) -> pl.DataFrame:
+    """Applies data element types to the data points based on metadata.
+
+    Args:
+        df: DataFrame containing the extracted data.
+        de_metadata: DataFrame containing data element metadata.
+
+    Returns:
+        DataFrame with data element types applied.
+    """
+    dx_ids = df.get_column("dx").unique().to_list()
+    de_types = de_metadata.filter(pl.col("id").is_in(dx_ids)).select(["id", "value_type"])
+
+    for de_id, de_type in de_types.iter_rows():
+        if de_type == "NUMBER":
+            df = cast_numeric_data_element_value(df, de_id, pl.Float64)
+        elif de_type == "INTEGER":
+            df = cast_numeric_data_element_value(df, de_id, pl.Int64)
+        elif de_type == "INTEGER_ZERO_OR_POSITIVE":
+            df = cast_numeric_data_element_value(df, de_id, pl.Int64, min_value=0)
+        # Add more types as needed
+
+    return df
 
 
 if __name__ == "__main__":
