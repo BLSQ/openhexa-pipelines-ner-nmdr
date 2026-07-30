@@ -13,6 +13,12 @@ from utils import (
     save_logs,
 )
 
+# ticket:
+# https://bluesquare.atlassian.net/browse/SMASDUNER-210
+
+# Git repo: https://github.com/BLSQ/openhexa-pipelines-ner-nmdr
+
+
 DF_PUSH_SCHEMA = {
     "dx": pl.String,
     "period": pl.String,
