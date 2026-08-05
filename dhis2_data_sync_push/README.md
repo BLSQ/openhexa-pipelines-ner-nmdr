@@ -1,6 +1,6 @@
-# dhis2_data_sync_push
+# dhis2_data_sync_push (Français)
 
-*(English version below)*
+_([🇬🇧 Skip to English version](#dhis2_data_sync_push-english))_
 
 ## Description
 
@@ -8,10 +8,10 @@ Pousse (push) les extractions d'éléments de données produites par le pipeline
 
 ## Paramètres
 
-| Paramètre | Code | Type | Obligatoire | Valeur par défaut | Description |
-|---|---|---|---|---|---|
-| Date de début | `start_date` | str (`YYYYMM`) | Non | `201701` | Début de la fenêtre de push. |
-| Date de fin | `end_date` | str (`YYYYMM`) | Non | `202112` | Fin de la fenêtre de push. |
+| Paramètre     | Code         | Type           | Obligatoire | Valeur par défaut | Description                  |
+| ------------- | ------------ | -------------- | ----------- | ----------------- | ---------------------------- |
+| Date de début | `start_date` | str (`YYYYMM`) | Non         | `201701`          | Début de la fenêtre de push. |
+| Date de fin   | `end_date`   | str (`YYYYMM`) | Non         | `202112`          | Fin de la fenêtre de push.   |
 
 ## Description du processus (workflow)
 
@@ -26,6 +26,7 @@ Pousse (push) les extractions d'éléments de données produites par le pipeline
    - Après chaque période (succès, échec d'envoi, ou fichier manquant), les journaux sont copiés dans `logs/` sous le dossier du pipeline.
 
 Chaque entrée d'extraction dans `push_config.json` requiert :
+
 - `EXTRACT_UID` — doit correspondre à l'UID d'extraction produit par `dhis2_data_sync_extract`, utilisé pour localiser les fichiers Parquet sources.
 - `FREQUENCY` — `MONTHLY` ou `YEARLY`.
 - `MAPPINGS` — dictionnaire indexé par UID source, où chaque entrée fournit :
@@ -40,6 +41,8 @@ Chaque entrée d'extraction dans `push_config.json` requiert :
 
 ---
 
+[⬆️ Retour en haut / Back to top](#dhis2_data_sync_push)
+
 # dhis2_data_sync_push (English)
 
 ## Description
@@ -48,10 +51,10 @@ Pushes the data element extracts produced by the `dhis2_data_sync_extract` pipel
 
 ## Parameters
 
-| Parameter | Code | Type | Required | Default | Description |
-|---|---|---|---|---|---|
-| Start date | `start_date` | str (`YYYYMM`) | No | `201701` | Start of the push window. |
-| End date | `end_date` | str (`YYYYMM`) | No | `202112` | End of the push window. |
+| Parameter  | Code         | Type           | Required | Default  | Description               |
+| ---------- | ------------ | -------------- | -------- | -------- | ------------------------- |
+| Start date | `start_date` | str (`YYYYMM`) | No       | `201701` | Start of the push window. |
+| End date   | `end_date`   | str (`YYYYMM`) | No       | `202112` | End of the push window.   |
 
 ## Workflow process description
 
@@ -66,6 +69,7 @@ Pushes the data element extracts produced by the `dhis2_data_sync_extract` pipel
    - After each period (success, push failure, or missing file), logs are copied into `logs/` under the pipeline folder.
 
 Each extract entry in `push_config.json` requires:
+
 - `EXTRACT_UID` — must match the extract UID produced by `dhis2_data_sync_extract`, used to locate the source Parquet files.
 - `FREQUENCY` — `MONTHLY` or `YEARLY`.
 - `MAPPINGS` — dictionary keyed by source UID, where each entry provides:
